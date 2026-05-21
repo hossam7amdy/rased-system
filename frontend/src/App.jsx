@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 
 // --- Configuration ---
-const API_URL = 'http://192.168.1.4:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const API_URL = `${API_BASE_URL}/api`;
 axios.defaults.baseURL = API_URL;
 
 // ==============================
@@ -329,7 +330,7 @@ const DynamicQRDisplay = ({ course }) => {
 
   useEffect(() => {
     const roomId = String(course.id);
-    const socket = io('http://192.168.1.4:5000', {
+    const socket = io(API_BASE_URL, {
       auth: { token: localStorage.getItem('token') },
       transports: ['websocket']
     });
@@ -872,7 +873,7 @@ const StudentScanner = ({ courseId }) => {
           async (decodedText) => {
             await stopScanner();
             try {
-              const response = await axios.post('http://192.168.1.4:5000/api/attendance/scan', {
+              const response = await axios.post(`${API_URL}/attendance/scan`, {
                 token: decodedText,
                 courseId: courseIdRef.current
               }, {
@@ -1538,7 +1539,7 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchMyCourses = async () => {
       try {
-        const response = await axios.get('http://192.168.1.4:5000/api/courses/my-courses', {
+        const response = await axios.get(`${API_URL}/courses/my-courses`, {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         if (response.data.success) {
