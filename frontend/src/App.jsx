@@ -1,5 +1,4 @@
 import React, { useState, useEffect, createContext, useContext, useRef, useCallback } from 'react';
-import { io } from 'socket.io-client';
 import EnrollmentManager from "./components/Admin/EnrollmentManager";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -320,55 +319,59 @@ const StatCard = ({ icon: Icon, label, value, color = 'blue', trend }) => {
 // ==============================
 // DYNAMIC QR DISPLAY
 // ==============================
-const DynamicQRDisplay = ({ course }) => {
+const DynamicQRDisplay = ({ course, sessionId }) => {
   const [qrValue, setQrValue] = useState('');
   const [timer, setTimer] = useState(8);
   const [attendedStudents, setAttendedStudents] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
-  const socketRef = useRef(null);
   const addToast = useToast();
 
+  // Poll QR token every 3s; server auto-rotates every 8s
   useEffect(() => {
-    const roomId = String(course.id);
-    const socket = io(API_BASE_URL, {
-      auth: { token: localStorage.getItem('token') },
-      transports: ['websocket']
-    });
-    socketRef.current = socket;
-
-    socket.on('connect', () => {
-      setIsConnected(true);
-      socket.emit('start_attendance', roomId);
-    });
-
-    socket.on('disconnect', () => setIsConnected(false));
-
-    socket.on('qr_update', (data) => {
-      QRCode.toDataURL(data.token, {
-        width: 400, margin: 2,
-        color: { dark: '#1E3A8A', light: '#ffffff' },
-        errorCorrectionLevel: 'H'
-      }, (err, url) => {
-        if (!err) { setQrValue(url); setTimer(8); }
-      });
-    });
-
-// ابحث عن هذا الجزء في App.jsx وقم بتعديله
-  socket.on('student_attended', (data) => {
-    const normalized = {
-      ...data,
-      // التعديل: الترتيب هنا مهم، نبدأ بـ name و full_name لأن الباك-إند يرسلها هكذا
-    studentName: data.studentName  || data.full_name || "اسم غير متوفر",      // التأكد من قراءة الرقم الجامعي بشكل صحيح
-      studentUniversityId: data.studentUniversityId  || data.university_id  || data.student_id  || 'N/A',
+    let cancelled = false;
+    const fetchQR = async () => {
+      try {
+        const res = await axios.get(`/attendance/current-qr/${course.id}`);
+        if (cancelled) return;
+        const { token, remainingSeconds } = res.data.data;
+        setIsConnected(true);
+        setTimer(remainingSeconds);
+        const url = await QRCode.toDataURL(token, {
+          width: 400, margin: 2,
+          color: { dark: '#1E3A8A', light: '#ffffff' },
+          errorCorrectionLevel: 'H',
+        });
+        if (!cancelled) setQrValue(url);
+      } catch {
+        if (!cancelled) setIsConnected(false);
+      }
     };
-    
-    setAttendedStudents(prev => {
-      // منع التكرار إذا وصل نفس الطالب مرتين
-      if (prev.find(s => s.student_id === normalized.student_id)) return prev;
-      return [normalized, ...prev];
-    });
-  });
+    fetchQR();
+    const qrInterval = setInterval(fetchQR, 3000);
+    return () => { cancelled = true; clearInterval(qrInterval); };
   }, [course.id]);
+
+  // Poll session attendance list every 5s
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    const fetchAttendance = async () => {
+      try {
+        const res = await axios.get(`/attendance/sessions/${sessionId}`);
+        if (cancelled) return;
+        const records = res.data.data?.records ?? [];
+        setAttendedStudents(records.map(r => ({
+          studentName: r.full_name,
+          studentUniversityId: r.university_id,
+          scannedAt: r.scanned_at,
+          attendanceStats: { percentage: r.attendance_percentage },
+        })));
+      } catch {}
+    };
+    fetchAttendance();
+    const attInterval = setInterval(fetchAttendance, 5000);
+    return () => { cancelled = true; clearInterval(attInterval); };
+  }, [sessionId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1249,6 +1252,7 @@ const AdminDashboard = () => {
 const ProfessorDashboard = () => {
   const [courses, setCourses] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [activeTab, setActiveTab] = useState('courses');
   const [newCourse, setNewCourse] = useState({ courseCode: '', courseName: '', semester: 'Fall', academicYear: '2025/2026' });
@@ -1305,15 +1309,26 @@ const ProfessorDashboard = () => {
 
   const handleStartSession = async (course) => {
     try {
-      await axios.post('/attendance/sessions', {
+      const res = await axios.post('/attendance/sessions', {
         courseId: course.id,
         sessionName: `محاضرة ${new Date().toLocaleDateString('ar-EG', { day: 'numeric', month: 'long' })}`,
         sessionDate: new Date().toISOString().split('T')[0]
       });
+      setActiveSessionId(res.data.data?.session?.id ?? null);
       setActiveSession(course);
     } catch {
       setActiveSession(course);
     }
+  };
+
+  const handleEndSession = async () => {
+    try {
+      if (activeSessionId) {
+        await axios.patch(`/attendance/sessions/${activeSessionId}/end`);
+      }
+    } catch {}
+    setActiveSession(null);
+    setActiveSessionId(null);
   };
 
   return (
@@ -1331,13 +1346,13 @@ const ProfessorDashboard = () => {
               </div>
             </div>
             <button
-              onClick={() => setActiveSession(null)}
+              onClick={handleEndSession}
               className="flex items-center gap-2 bg-white dark:bg-slate-900 text-red-500 border border-red-200 dark:border-red-800/50 px-5 py-2.5 rounded-xl hover:bg-red-500 hover:text-white hover:border-red-500 transition-all font-black text-sm shadow-sm"
             >
               <X size={16}/> إنهاء الجلسة
             </button>
           </div>
-          <DynamicQRDisplay course={activeSession}/>
+          <DynamicQRDisplay course={activeSession} sessionId={activeSessionId}/>
         </div>
       ) : (
         <>
