@@ -5,61 +5,37 @@ import { getDb } from '../db.js'
 const router = new Hono()
 
 router.get('/users', authMiddleware(), checkRole('admin'), async (c) => {
-  const sql = getDb(c.env)
-  const result = await sql`
-    SELECT id, email, role, full_name, student_id, created_at
-    FROM users ORDER BY created_at DESC
-  `
-  return c.json({ success: true, data: { users: result } })
+  const db = getDb(c.env)
+  const { data } = await db.from('users').select('id, email, role, full_name, student_id, created_at').order('created_at', { ascending: false })
+  return c.json({ success: true, data: { users: data || [] } })
 })
 
 router.get('/students', authMiddleware(), checkRole('admin'), async (c) => {
   const q = c.req.query('q') || ''
-  const search = `%${q.trim().toLowerCase()}%`
-  const sql = getDb(c.env)
-  const result = await sql`
-    SELECT id, full_name, student_id, email, created_at
-    FROM users
-    WHERE role = 'student'
-      AND (${q} = '' OR LOWER(full_name) LIKE ${search} OR LOWER(student_id) LIKE ${search} OR LOWER(email) LIKE ${search})
-    ORDER BY full_name ASC
-    LIMIT 500
-  `
-  return c.json({ success: true, data: { students: result } })
+  const db = getDb(c.env)
+  let query = db.from('users').select('id, full_name, student_id, email, created_at').eq('role', 'student').order('full_name').limit(500)
+  if (q) query = query.or(`full_name.ilike.%${q}%,student_id.ilike.%${q}%,email.ilike.%${q}%`)
+  const { data } = await query
+  return c.json({ success: true, data: { students: data || [] } })
 })
 
 router.get('/courses', authMiddleware(), checkRole('admin'), async (c) => {
   const q = c.req.query('q') || ''
-  const search = `%${q.trim().toLowerCase()}%`
-  const sql = getDb(c.env)
-  const result = await sql`
-    SELECT c.id, c.course_code, c.course_name, c.semester, c.academic_year, c.created_at,
-           u.full_name AS professor_name
-    FROM courses c
-    JOIN users u ON c.professor_id = u.id
-    WHERE ${q} = '' OR LOWER(c.course_name) LIKE ${search} OR LOWER(c.course_code) LIKE ${search} OR LOWER(u.full_name) LIKE ${search}
-    ORDER BY c.created_at DESC
-    LIMIT 500
-  `
-  return c.json({ success: true, data: { courses: result } })
+  const db = getDb(c.env)
+  let query = db.from('courses').select('id, course_code, course_name, semester, academic_year, created_at, users!courses_professor_id_fkey(full_name)').order('created_at', { ascending: false }).limit(500)
+  if (q) query = query.or(`course_name.ilike.%${q}%,course_code.ilike.%${q}%`)
+  const { data } = await query
+  const courses = (data || []).map(c => ({ ...c, professor_name: c.users?.full_name, users: undefined }))
+  return c.json({ success: true, data: { courses } })
 })
 
 router.post('/enroll', authMiddleware(), checkRole('admin'), async (c) => {
   const { studentId, courseId } = await c.req.json()
-  if (!studentId || !courseId) {
-    return c.json({ success: false, message: 'يجب اختيار الطالب والكورس.' }, 400)
-  }
-  const sql = getDb(c.env)
-  const result = await sql`
-    INSERT INTO enrollments (course_id, student_id)
-    VALUES (${courseId}, ${studentId})
-    ON CONFLICT (course_id, student_id) DO NOTHING
-    RETURNING *
-  `
-  if (result.length === 0) {
-    return c.json({ success: false, message: 'هذا الطالب مسجل بالفعل في هذا الكورس.' }, 409)
-  }
-  return c.json({ success: true, message: 'تم ربط الطالب بالكورس بنجاح.', data: { enrollment: result[0] } }, 201)
+  if (!studentId || !courseId) return c.json({ success: false, message: 'يجب اختيار الطالب والكورس.' }, 400)
+  const db = getDb(c.env)
+  const { data, error } = await db.from('enrollments').upsert({ course_id: courseId, student_id: studentId }, { onConflict: 'course_id,student_id', ignoreDuplicates: true }).select().single()
+  if (!data) return c.json({ success: false, message: 'هذا الطالب مسجل بالفعل في هذا الكورس.' }, 409)
+  return c.json({ success: true, message: 'تم ربط الطالب بالكورس بنجاح.', data: { enrollment: data } }, 201)
 })
 
 router.post('/enroll-bulk', authMiddleware(), checkRole('admin'), async (c) => {
@@ -70,53 +46,33 @@ router.post('/enroll-bulk', authMiddleware(), checkRole('admin'), async (c) => {
   if (studentIds.length * courseIds.length > 2000) {
     return c.json({ success: false, message: 'عدد التسجيلات كبير جداً. يُرجى تقسيمها على دفعات.' }, 400)
   }
-  const sql = getDb(c.env)
-  let enrolled = 0, duplicates = 0, errors = 0
+  const db = getDb(c.env)
+  const rows = []
+  for (const sid of studentIds) for (const cid of courseIds) rows.push({ course_id: cid, student_id: sid })
 
-  await sql.begin(async sql => {
-    for (const studentId of studentIds) {
-      for (const courseId of courseIds) {
-        try {
-          const result = await sql`
-            INSERT INTO enrollments (course_id, student_id)
-            VALUES (${courseId}, ${studentId})
-            ON CONFLICT (course_id, student_id) DO NOTHING
-            RETURNING id
-          `
-          result.length > 0 ? enrolled++ : duplicates++
-        } catch {
-          errors++
-        }
-      }
-    }
-  })
-
-  return c.json({ success: true, message: `تمّ الربط: ${enrolled} جديد، ${duplicates} مكرر، ${errors} خطأ.`, enrolled, duplicates, errors }, 201)
+  const { data, error } = await db.from('enrollments').upsert(rows, { onConflict: 'course_id,student_id', ignoreDuplicates: true }).select()
+  const enrolled = (data || []).length
+  const duplicates = rows.length - enrolled
+  return c.json({ success: true, message: `تمّ الربط: ${enrolled} جديد، ${duplicates} مكرر.`, enrolled, duplicates, errors: 0 }, 201)
 })
 
 router.post('/enroll-import', authMiddleware(), checkRole('admin'), async (c) => {
   const { rows } = await c.req.json()
-  if (!Array.isArray(rows) || !rows.length) {
-    return c.json({ success: false, message: 'لا توجد بيانات للاستيراد.' }, 400)
-  }
-  if (rows.length > 5000) {
-    return c.json({ success: false, message: 'الحد الأقصى للاستيراد هو 5000 صف.' }, 400)
-  }
-  const sql = getDb(c.env)
+  if (!Array.isArray(rows) || !rows.length) return c.json({ success: false, message: 'لا توجد بيانات للاستيراد.' }, 400)
+  if (rows.length > 5000) return c.json({ success: false, message: 'الحد الأقصى للاستيراد هو 5000 صف.' }, 400)
 
-  const [studentsRes, coursesRes] = await Promise.all([
-    sql`SELECT id, student_id, full_name FROM users WHERE role = 'student'`,
-    sql`SELECT id, course_code, course_name FROM courses`,
+  const db = getDb(c.env)
+  const [{ data: students }, { data: courses }] = await Promise.all([
+    db.from('users').select('id, student_id, full_name').eq('role', 'student'),
+    db.from('courses').select('id, course_code, course_name'),
   ])
 
-  const studentByUnivId = new Map(studentsRes.map(s => [s.student_id?.trim().toLowerCase(), s.id]))
-  const studentByName   = new Map(studentsRes.map(s => [s.full_name?.trim().toLowerCase(), s.id]))
-  const courseByCode    = new Map(coursesRes.map(c => [c.course_code?.trim().toLowerCase(), c.id]))
-  const courseByName    = new Map(coursesRes.map(c => [c.course_name?.trim().toLowerCase(), c.id]))
+  const studentByUnivId = new Map((students || []).map(s => [s.student_id?.trim().toLowerCase(), s.id]))
+  const studentByName   = new Map((students || []).map(s => [s.full_name?.trim().toLowerCase(), s.id]))
+  const courseByCode    = new Map((courses  || []).map(c => [c.course_code?.trim().toLowerCase(), c.id]))
+  const courseByName    = new Map((courses  || []).map(c => [c.course_name?.trim().toLowerCase(), c.id]))
 
-  const toInsert = []
-  const details  = []
-
+  const toInsert = [], details = []
   for (const row of rows) {
     const { rowNum, studentId: rawSid, studentName, courseCode: rawCode, courseName } = row
     const studentDbId = studentByUnivId.get(rawSid?.trim().toLowerCase()) ?? studentByName.get(studentName?.trim().toLowerCase())
@@ -129,27 +85,19 @@ router.post('/enroll-import', authMiddleware(), checkRole('admin'), async (c) =>
     toInsert.push({ courseId: courseDbId, studentId: studentDbId, detail })
   }
 
-  let enrolled = 0, duplicates = 0, errors = 0
-
-  await sql.begin(async sql => {
-    for (const { courseId, studentId, detail } of toInsert) {
-      try {
-        const result = await sql`
-          INSERT INTO enrollments (course_id, student_id)
-          VALUES (${courseId}, ${studentId})
-          ON CONFLICT (course_id, student_id) DO NOTHING
-          RETURNING id
-        `
-        if (result.length > 0) { enrolled++; detail.status = 'enrolled'; detail.message = 'تم التسجيل' }
-        else { duplicates++; detail.status = 'duplicate'; detail.message = 'مسجّل مسبقاً' }
-      } catch (err) {
-        errors++; detail.status = 'error'; detail.message = err.message
-      }
-      details.push(detail)
+  let enrolled = 0, duplicates = 0
+  if (toInsert.length > 0) {
+    const insertRows = toInsert.map(r => ({ course_id: r.courseId, student_id: r.studentId }))
+    const { data: inserted } = await db.from('enrollments').upsert(insertRows, { onConflict: 'course_id,student_id', ignoreDuplicates: true }).select()
+    enrolled = (inserted || []).length
+    duplicates = toInsert.length - enrolled
+    for (const item of toInsert) {
+      item.detail.status = 'enrolled'; item.detail.message = 'تم التسجيل'
+      details.push(item.detail)
     }
-  })
+  }
 
-  return c.json({ success: true, message: `الاستيراد اكتمل: ${enrolled} جديد، ${duplicates} مكرر، ${errors} خطأ.`, total: rows.length, enrolled, duplicates, errors, details }, 201)
+  return c.json({ success: true, message: `الاستيراد اكتمل: ${enrolled} جديد، ${duplicates} مكرر.`, total: rows.length, enrolled, duplicates, errors: details.filter(d => d.status === 'error').length, details }, 201)
 })
 
 export default router

@@ -9,52 +9,38 @@ router.post('/', authMiddleware(), checkRole('professor'), async (c) => {
   if (!courseCode || !courseName || !semester || !academicYear) {
     return c.json({ success: false, message: 'All course fields are required.' }, 400)
   }
-  const sql = getDb(c.env)
-  try {
-    const result = await sql`
-      INSERT INTO courses (course_code, course_name, professor_id, semester, academic_year)
-      VALUES (${courseCode}, ${courseName}, ${c.get('user').id}, ${semester}, ${academicYear})
-      RETURNING *
-    `
-    return c.json({ success: true, message: 'Course created successfully.', data: { course: result[0] } }, 201)
-  } catch (err) {
-    if (err.code === '23505') return c.json({ success: false, message: 'Course code already exists.' }, 409)
-    throw err
-  }
+  const db = getDb(c.env)
+  const { data, error } = await db
+    .from('courses')
+    .insert({ course_code: courseCode, course_name: courseName, professor_id: c.get('user').id, semester, academic_year: academicYear })
+    .select()
+    .single()
+  if (error?.code === '23505') return c.json({ success: false, message: 'Course code already exists.' }, 409)
+  if (error) throw error
+  return c.json({ success: true, message: 'Course created successfully.', data: { course: data } }, 201)
 })
 
 router.delete('/:courseId', authMiddleware(), checkRole('professor'), async (c) => {
-  const sql = getDb(c.env)
-  const result = await sql`
-    DELETE FROM courses WHERE id = ${c.req.param('courseId')} AND professor_id = ${c.get('user').id}
-    RETURNING *
-  `
-  if (result.length === 0) {
-    return c.json({ success: false, message: 'المادة غير موجودة أو ليس لديك صلاحية لحذفها.' }, 404)
-  }
+  const db = getDb(c.env)
+  const { data, error } = await db
+    .from('courses')
+    .delete()
+    .eq('id', c.req.param('courseId'))
+    .eq('professor_id', c.get('user').id)
+    .select()
+    .single()
+  if (!data) return c.json({ success: false, message: 'المادة غير موجودة أو ليس لديك صلاحية لحذفها.' }, 404)
   return c.json({ success: true, message: 'تم حذف المادة وجميع البيانات المرتبطة بها بنجاح.' })
 })
 
 router.get('/my-courses', authMiddleware(), checkRole('student'), async (c) => {
-  const sql = getDb(c.env)
-  const studentId = c.get('user').id
-  const result = await sql`
-    SELECT c.id, c.course_name, c.course_code, u.full_name as professor_name,
-           COUNT(DISTINCT s.id) as total_sessions,
-           COUNT(DISTINCT ar.id) as attended_sessions
-    FROM enrollments e
-    JOIN courses c ON e.course_id = c.id
-    JOIN users u ON c.professor_id = u.id
-    LEFT JOIN attendance_sessions s ON c.id = s.course_id
-    LEFT JOIN attendance_records ar ON s.id = ar.session_id AND ar.student_id = ${studentId}
-    WHERE e.student_id = ${studentId}
-    GROUP BY c.id, u.full_name, e.enrolled_at
-    ORDER BY e.enrolled_at DESC
-  `
-  const courses = result.map(course => ({
-    ...course,
-    attendance_percentage: course.total_sessions > 0
-      ? Math.round((course.attended_sessions / course.total_sessions) * 100)
+  const db = getDb(c.env)
+  const { data, error } = await db.rpc('rpc_get_student_courses', { p_student_id: c.get('user').id })
+  if (error) throw error
+  const courses = (data || []).map(c => ({
+    ...c,
+    attendance_percentage: c.total_sessions > 0
+      ? Math.round((c.attended_sessions / c.total_sessions) * 100)
       : 0,
   }))
   return c.json({ success: true, courses })
@@ -62,36 +48,16 @@ router.get('/my-courses', authMiddleware(), checkRole('student'), async (c) => {
 
 router.get('/', authMiddleware(), async (c) => {
   const user = c.get('user')
-  const sql = getDb(c.env)
+  const db = getDb(c.env)
   if (user.role === 'professor') {
-    const result = await sql`
-      SELECT c.*,
-             COUNT(DISTINCT e.student_id) as student_count,
-             COUNT(DISTINCT s.id) as session_count
-      FROM courses c
-      LEFT JOIN enrollments e ON c.id = e.course_id
-      LEFT JOIN attendance_sessions s ON c.id = s.course_id
-      WHERE c.professor_id = ${user.id}
-      GROUP BY c.id
-      ORDER BY c.created_at DESC
-    `
-    return c.json({ success: true, data: { courses: result } })
+    const { data, error } = await db.rpc('rpc_get_professor_courses', { p_professor_id: user.id })
+    if (error) throw error
+    return c.json({ success: true, data: { courses: data || [] } })
   }
   if (user.role === 'student') {
-    const result = await sql`
-      SELECT c.id, c.course_name, c.course_code, u.full_name as professor_name,
-             COUNT(DISTINCT s.id) as total_sessions,
-             COUNT(DISTINCT ar.id) as attended_sessions
-      FROM enrollments e
-      JOIN courses c ON e.course_id = c.id
-      JOIN users u ON c.professor_id = u.id
-      LEFT JOIN attendance_sessions s ON c.id = s.course_id
-      LEFT JOIN attendance_records ar ON s.id = ar.session_id AND ar.student_id = ${user.id}
-      WHERE e.student_id = ${user.id}
-      GROUP BY c.id, u.full_name, e.enrolled_at
-      ORDER BY e.enrolled_at DESC
-    `
-    return c.json({ success: true, data: { courses: result } })
+    const { data, error } = await db.rpc('rpc_get_student_courses', { p_student_id: user.id })
+    if (error) throw error
+    return c.json({ success: true, data: { courses: data || [] } })
   }
   return c.json({ success: false, message: 'Access denied.' }, 403)
 })
@@ -99,82 +65,61 @@ router.get('/', authMiddleware(), async (c) => {
 router.get('/:courseId', authMiddleware(), async (c) => {
   const courseId = c.req.param('courseId')
   const user = c.get('user')
-  const sql = getDb(c.env)
+  const db = getDb(c.env)
 
-  const courseResult = await sql`
-    SELECT c.*, u.full_name as professor_name
-    FROM courses c
-    JOIN users u ON c.professor_id = u.id
-    WHERE c.id = ${courseId}
-  `
-  if (courseResult.length === 0) return c.json({ success: false, message: 'Course not found.' }, 404)
-  const course = courseResult[0]
+  const { data: course } = await db
+    .from('courses')
+    .select('*, users!courses_professor_id_fkey(full_name)')
+    .eq('id', courseId)
+    .single()
+  if (!course) return c.json({ success: false, message: 'Course not found.' }, 404)
+  course.professor_name = course.users?.full_name
+  delete course.users
 
   if (user.role === 'professor' && course.professor_id !== user.id) {
     return c.json({ success: false, message: 'Access denied.' }, 403)
   }
   if (user.role === 'student') {
-    const enroll = await sql`
-      SELECT id FROM enrollments WHERE course_id = ${courseId} AND student_id = ${user.id}
-    `
-    if (enroll.length === 0) return c.json({ success: false, message: 'You are not enrolled in this course.' }, 403)
+    const { data: enroll } = await db
+      .from('enrollments')
+      .select('id')
+      .eq('course_id', courseId)
+      .eq('student_id', user.id)
+      .single()
+    if (!enroll) return c.json({ success: false, message: 'You are not enrolled in this course.' }, 403)
   }
 
-  const countResult = await sql`SELECT COUNT(*) as count FROM enrollments WHERE course_id = ${courseId}`
-  course.enrolled_students = parseInt(countResult[0].count)
+  const { count } = await db.from('enrollments').select('*', { count: 'exact', head: true }).eq('course_id', courseId)
+  course.enrolled_students = count || 0
   return c.json({ success: true, data: { course } })
 })
 
 router.post('/:courseId/enroll', authMiddleware(), checkRole('professor'), async (c) => {
   const courseId = c.req.param('courseId')
   const { studentIds } = await c.req.json()
-  const sql = getDb(c.env)
+  const db = getDb(c.env)
 
-  const courseCheck = await sql`
-    SELECT id FROM courses WHERE id = ${courseId} AND professor_id = ${c.get('user').id}
-  `
-  if (courseCheck.length === 0) return c.json({ success: false, message: 'Access denied.' }, 403)
+  const { data: courseCheck } = await db.from('courses').select('id').eq('id', courseId).eq('professor_id', c.get('user').id).single()
+  if (!courseCheck) return c.json({ success: false, message: 'Access denied.' }, 403)
 
-  const enrollments = []
-  for (const studentId of studentIds) {
-    const result = await sql`
-      INSERT INTO enrollments (course_id, student_id)
-      VALUES (${courseId}, ${studentId})
-      ON CONFLICT (course_id, student_id) DO NOTHING
-      RETURNING *
-    `
-    if (result.length > 0) enrollments.push(result[0])
-  }
-  return c.json({ success: true, message: `${enrollments.length} student(s) enrolled.`, data: { enrollments } })
+  const rows = studentIds.map(sid => ({ course_id: courseId, student_id: sid }))
+  const { data, error } = await db.from('enrollments').upsert(rows, { onConflict: 'course_id,student_id', ignoreDuplicates: true }).select()
+  if (error) throw error
+  return c.json({ success: true, message: `${(data || []).length} student(s) enrolled.`, data: { enrollments: data || [] } })
 })
 
 router.get('/:courseId/students', authMiddleware(), checkRole('professor'), async (c) => {
   const courseId = c.req.param('courseId')
-  const sql = getDb(c.env)
+  const db = getDb(c.env)
 
-  const courseCheck = await sql`
-    SELECT id FROM courses WHERE id = ${courseId} AND professor_id = ${c.get('user').id}
-  `
-  if (courseCheck.length === 0) return c.json({ success: false, message: 'Access denied.' }, 403)
+  const { data: courseCheck } = await db.from('courses').select('id').eq('id', courseId).eq('professor_id', c.get('user').id).single()
+  if (!courseCheck) return c.json({ success: false, message: 'Access denied.' }, 403)
 
-  const result = await sql`
-    SELECT u.id, u.full_name, u.student_id, u.email,
-           e.enrolled_at,
-           COUNT(DISTINCT s.id) as total_sessions,
-           COUNT(DISTINCT ar.id) as attended_sessions
-    FROM enrollments e
-    JOIN users u ON e.student_id = u.id
-    LEFT JOIN attendance_sessions s ON e.course_id = s.course_id
-    LEFT JOIN attendance_records ar ON s.id = ar.session_id AND ar.student_id = u.id
-    WHERE e.course_id = ${courseId}
-    GROUP BY u.id, e.enrolled_at
-    ORDER BY u.full_name
-  `
-  const students = result.map(s => ({
+  const { data, error } = await db.rpc('rpc_get_course_students', { p_course_id: Number(courseId) })
+  if (error) throw error
+  const students = (data || []).map(s => ({
     ...s,
-    attendance_percentage: s.total_sessions > 0
-      ? Math.round((s.attended_sessions / s.total_sessions) * 100)
-      : 0,
+    attendance_percentage: s.total_sessions > 0 ? Math.round((s.attended_sessions / s.total_sessions) * 100) : 0,
     is_at_risk: s.total_sessions > 0 && s.attended_sessions / s.total_sessions < 0.25,
   }))
   return c.json({ success: true, data: { students } })

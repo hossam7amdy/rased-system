@@ -1,10 +1,7 @@
-import postgres from 'postgres'
-
-let _sql = null
+import { createClient } from '@supabase/supabase-js'
 
 export function getDb(env) {
-  if (!_sql) {
-    _sql = postgres(env.DATABASE_URL, { ssl: 'require', max: 2 })
-  }
-  return _sql
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  })
 }
