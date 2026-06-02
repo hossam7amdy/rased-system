@@ -3,6 +3,7 @@
 ## 5-Minute Setup
 
 ### Prerequisites Check
+
 ```bash
 node --version  # Should be 18+
 psql --version  # Should be 15+
@@ -10,6 +11,7 @@ redis-cli --version  # Should be 7+
 ```
 
 ### Step 1: Database Setup (2 minutes)
+
 ```bash
 # Create database
 createdb rased_db
@@ -27,26 +29,28 @@ cp .env.example .env
 # - TOKEN_ENCRYPTION_KEY (exactly 32 characters)
 
 # Initialize database
-npm install
-npm run init-db
+yarn install
+yarn run init-db
 ```
 
 ### Step 2: Start Services (1 minute)
+
 ```bash
 # Terminal 1: Start Redis
 redis-server
 
 # Terminal 2: Start Backend
 cd backend
-npm run dev
+yarn run dev
 
 # Terminal 3: Start Frontend
 cd frontend
-npm install
-npm run dev
+yarn install
+yarn run dev
 ```
 
 ### Step 3: Access & Test (2 minutes)
+
 1. Open http://localhost:3000
 2. Login with: admin@rased.edu / admin123
 3. Create a professor account
@@ -56,8 +60,8 @@ npm run dev
 
 ## Default Login Credentials
 
-| Role | Email | Password |
-|------|-------|----------|
+| Role  | Email           | Password |
+| ----- | --------------- | -------- |
 | Admin | admin@rased.edu | admin123 |
 
 **⚠️ Change the admin password immediately!**
@@ -65,6 +69,7 @@ npm run dev
 ## Typical Workflow
 
 ### As Professor:
+
 1. Login → Dashboard
 2. Create Course (e.g., "Computer Science 101")
 3. Add Students (via Register or Bulk Upload)
@@ -75,6 +80,7 @@ npm run dev
 8. View analytics & export reports
 
 ### As Student:
+
 1. Login → Dashboard
 2. See enrolled courses
 3. When professor starts session, click "Scan QR"
@@ -85,6 +91,7 @@ npm run dev
 ## Troubleshooting Quick Fixes
 
 ### "Database connection failed"
+
 ```bash
 # Check PostgreSQL is running
 brew services list | grep postgresql  # macOS
@@ -96,6 +103,7 @@ sudo systemctl start postgresql  # Linux
 ```
 
 ### "Redis connection failed"
+
 ```bash
 # Start Redis
 redis-server
@@ -105,6 +113,7 @@ brew services start redis
 ```
 
 ### "Port already in use"
+
 ```bash
 # Kill process on port 5000 (backend)
 lsof -ti:5000 | xargs kill -9
@@ -114,11 +123,13 @@ lsof -ti:3000 | xargs kill -9
 ```
 
 ### "Camera not working"
+
 - Grant camera permissions in browser
 - Try different browser (Chrome recommended)
 - Ensure using HTTPS in production
 
 ### "QR expired immediately"
+
 - Verify Redis is running
 - Check system clock (must be synchronized)
 - Ensure QR_TOKEN_EXPIRY is set correctly in .env
@@ -142,6 +153,7 @@ lsof -ti:3000 | xargs kill -9
 ## Environment Variables Reference
 
 ### Required (Must Change!)
+
 ```env
 JWT_SECRET=<random-32-character-string>
 JWT_REFRESH_SECRET=<random-32-character-string>
@@ -150,6 +162,7 @@ DB_PASSWORD=<your-postgres-password>
 ```
 
 ### Optional (Can Use Defaults)
+
 ```env
 PORT=5000
 DB_HOST=localhost
@@ -167,6 +180,7 @@ FRONTEND_URL=http://localhost:3000
 ### For Large Deployments (1000+ students)
 
 **PostgreSQL:**
+
 ```sql
 -- Increase connection pool
 ALTER SYSTEM SET max_connections = 200;
@@ -174,15 +188,17 @@ ALTER SYSTEM SET shared_buffers = '256MB';
 ```
 
 **Backend (server.js):**
+
 ```javascript
 // Increase connection pool
 const pool = new Pool({
-  max: 50,  // Up from 20
-  idleTimeoutMillis: 30000
+  max: 50, // Up from 20
+  idleTimeoutMillis: 30000,
 });
 ```
 
 **Redis:**
+
 ```bash
 # Increase maxmemory
 redis-cli CONFIG SET maxmemory 1gb

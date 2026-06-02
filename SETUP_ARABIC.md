@@ -3,6 +3,7 @@
 ## 📋 المتطلبات الأساسية (يجب تحميلها أولاً)
 
 ### 1️⃣ تحميل Node.js
+
 ```
 الموقع: https://nodejs.org/
 - اختر النسخة LTS (يفضل 18 أو أحدث)
@@ -10,10 +11,11 @@
 - نصّب البرنامج عادي (Next, Next, Install)
 - للتأكد من التنصيب: افتح Terminal/CMD واكتب:
   node --version
-  npm --version
+  yarn --version
 ```
 
 ### 2️⃣ تحميل PostgreSQL (قاعدة البيانات)
+
 ```
 الموقع: https://www.postgresql.org/download/
 
@@ -36,6 +38,7 @@ sudo systemctl start postgresql
 ```
 
 ### 3️⃣ تحميل Redis
+
 ```
 🪟 Windows:
 - حمل Redis من: https://github.com/tporadowski/redis/releases
@@ -53,6 +56,7 @@ sudo systemctl start redis
 ```
 
 ### 4️⃣ محرر نصوص (اختياري لكن مهم)
+
 ```
 حمل VS Code من: https://code.visualstudio.com/
 أو أي محرر نصوص تاني (Sublime, Atom, إلخ)
@@ -63,6 +67,7 @@ sudo systemctl start redis
 ## 📥 خطوات تحميل وتنصيب التطبيق
 
 ### الخطوة 1: استخراج الملفات
+
 ```bash
 # حمل ملف rased-system.tar.gz
 # افتح Terminal/CMD في نفس المكان اللي حملت فيه الملف
@@ -77,17 +82,19 @@ cd rased-system
 ```
 
 ### الخطوة 2: تنصيب مكتبات الـ Backend
+
 ```bash
 # ادخل على مجلد الـ backend
 cd backend
 
 # نصّب المكتبات (هياخد 2-3 دقايق)
-npm install
+yarn install
 
 # انتظر لحد ما يخلص التحميل
 ```
 
 ### الخطوة 3: تنصيب مكتبات الـ Frontend
+
 ```bash
 # ارجع للمجلد الرئيسي
 cd ..
@@ -96,7 +103,7 @@ cd ..
 cd frontend
 
 # نصّب المكتبات
-npm install
+yarn install
 
 # انتظر لحد ما يخلص
 ```
@@ -106,6 +113,7 @@ npm install
 ## ⚙️ إعداد قاعدة البيانات
 
 ### الخطوة 4: إنشاء قاعدة البيانات
+
 ```bash
 # افتح Terminal/CMD جديد
 
@@ -123,6 +131,7 @@ CREATE DATABASE rased_db;
 ```
 
 ### الخطوة 5: إعداد ملف الإعدادات (.env)
+
 ```bash
 # ارجع لمجلد الـ backend
 cd backend
@@ -140,6 +149,7 @@ cp .env.example .env
 ```
 
 ### الخطوة 6: تعديل ملف .env
+
 ```env
 افتح ملف .env وعدّل القيم دي:
 
@@ -173,11 +183,12 @@ RATE_LIMIT_MAX_REQUESTS=100
 ```
 
 ### الخطوة 7: إنشاء جداول قاعدة البيانات
+
 ```bash
 # أنت دلوقتي في مجلد backend
 # شغّل سكريبت إنشاء الجداول:
 
-npm run init-db
+yarn run init-db
 
 # المفروض تشوف رسائل نجاح زي:
 # ✅ Users table created
@@ -193,6 +204,7 @@ npm run init-db
 ## 🚀 تشغيل التطبيق
 
 ### الخطوة 8: تشغيل Redis
+
 ```bash
 # افتح Terminal/CMD جديد (Terminal #1)
 
@@ -215,12 +227,13 @@ sudo systemctl start redis
 ```
 
 ### الخطوة 9: تشغيل الـ Backend (السيرفر)
+
 ```bash
 # افتح Terminal/CMD جديد (Terminal #2)
 cd rased-system/backend
 
 # شغّل السيرفر:
-npm run dev
+yarn run dev
 
 # المفروض تشوف رسالة:
 # ╔══════════════════════════════════════════════════════════╗
@@ -232,12 +245,13 @@ npm run dev
 ```
 
 ### الخطوة 10: تشغيل الـ Frontend (الواجهة)
+
 ```bash
 # افتح Terminal/CMD جديد (Terminal #3)
 cd rased-system/frontend
 
 # شغّل الواجهة:
-npm run dev
+yarn run dev
 
 # المفروض تشوف:
 # VITE v5.0.8  ready in 500 ms
@@ -251,6 +265,7 @@ npm run dev
 ## 🎉 استخدام التطبيق
 
 ### الخطوة 11: فتح التطبيق
+
 ```
 1. افتح المتصفح (Chrome يفضّل)
 2. اكتب في شريط العنوان:
@@ -260,6 +275,7 @@ npm run dev
 ```
 
 ### الخطوة 12: تسجيل الدخول كـ Admin
+
 ```
 Email: admin@rased.edu
 Password: admin123
@@ -274,6 +290,7 @@ Password: admin123
 ### كـ Admin (مدير النظام):
 
 #### 1. إنشاء حساب دكتور
+
 ```
 1. اضغط "Create Professor Account"
 2. املى البيانات:
@@ -284,6 +301,7 @@ Password: admin123
 ```
 
 #### 2. إنشاء حسابات طلاب
+
 ```
 1. اضغط "Create Student Account"
 2. لكل طالب:
@@ -297,6 +315,7 @@ Password: admin123
 ### كـ Professor (دكتور):
 
 #### 3. تسجيل الدخول كدكتور
+
 ```
 1. اعمل Logout من Admin
 2. سجّل دخول بـ:
@@ -305,6 +324,7 @@ Password: admin123
 ```
 
 #### 4. إنشاء مادة دراسية
+
 ```
 1. اضغط "Create Course"
 2. املى البيانات:
@@ -316,6 +336,7 @@ Password: admin123
 ```
 
 #### 5. إضافة طلاب للمادة
+
 ```
 1. ادخل على المادة
 2. اضغط "Enroll Students"
@@ -324,6 +345,7 @@ Password: admin123
 ```
 
 #### 6. بدء جلسة حضور
+
 ```
 1. ادخل على المادة
 2. اضغط "Start Attendance Session"
@@ -338,11 +360,12 @@ Password: admin123
 ### كـ Student (طالب):
 
 #### 7. تسجيل الحضور
+
 ```
 1. افتح الموبايل
 2. ادخل على: http://localhost:3000
    (لو على نفس الشبكة)
-   
+
 3. سجّل دخول بحساب الطالب:
    Email: student1@university.edu
    Password: student123
@@ -356,6 +379,7 @@ Password: admin123
 ```
 
 #### 8. مشاهدة الحضور Real-Time
+
 ```
 الدكتور هيشوف على الشاشة:
 ✅ محمد علي - تم تسجيل الحضور
@@ -365,6 +389,7 @@ Password: admin123
 ### عودة للـ Professor:
 
 #### 9. إنهاء الجلسة
+
 ```
 1. اضغط "End Session"
 2. الـ QR هيتوقف
@@ -372,6 +397,7 @@ Password: admin123
 ```
 
 #### 10. مشاهدة التحليلات
+
 ```
 1. ادخل على "Analytics"
 2. شوف:
@@ -381,6 +407,7 @@ Password: admin123
 ```
 
 #### 11. تصدير التقرير
+
 ```
 1. اضغط "Export Attendance"
 2. اختار:
@@ -395,6 +422,7 @@ Password: admin123
 ## 🔧 حل المشاكل الشائعة
 
 ### ❌ المشكلة: Database connection failed
+
 ```bash
 الحل:
 1. تأكد إن PostgreSQL شغال:
@@ -412,6 +440,7 @@ Password: admin123
 ```
 
 ### ❌ المشكلة: Redis connection failed
+
 ```bash
 الحل:
 1. شغّل Redis:
@@ -426,6 +455,7 @@ redis-cli ping
 ```
 
 ### ❌ المشكلة: Port already in use
+
 ```bash
 الحل:
 # لو Port 5000 مشغول:
@@ -446,6 +476,7 @@ lsof -ti:3000 | xargs kill -9
 ```
 
 ### ❌ المشكلة: الكاميرا مش شغالة
+
 ```
 الحل:
 1. اسمح للمتصفح بالوصول للكاميرا
@@ -455,6 +486,7 @@ lsof -ti:3000 | xargs kill -9
 ```
 
 ### ❌ المشكلة: QR Code expired فوراً
+
 ```
 الحل:
 1. تأكد إن Redis شغال
@@ -462,7 +494,8 @@ lsof -ti:3000 | xargs kill -9
 3. تأكد من QR_TOKEN_EXPIRY في .env (لازم 10000)
 ```
 
-### ❌ المشكلة: npm install بيديني أخطاء
+### ❌ المشكلة: yarn install بيديني أخطاء
+
 ```
 الحل:
 1. تأكد من نسخة Node.js:
@@ -471,7 +504,7 @@ lsof -ti:3000 | xargs kill -9
 
 2. امسح المجلدات القديمة:
    rm -rf node_modules package-lock.json
-   npm install
+   yarn install
 
 3. لو فيه مشاكل permissions:
    🪟 Windows: افتح PowerShell كـ Administrator
@@ -483,6 +516,7 @@ lsof -ti:3000 | xargs kill -9
 ## 📱 للوصول من موبايل على نفس الشبكة
 
 ### معرفة IP الجهاز:
+
 ```bash
 🪟 Windows:
 ipconfig
@@ -498,6 +532,7 @@ ip addr show
 ```
 
 ### على الموبايل:
+
 ```
 افتح المتصفح واكتب:
 http://192.168.1.XXX:3000
@@ -512,6 +547,7 @@ http://192.168.1.XXX:3000
 ### قبل النشر على الإنترنت:
 
 1. **غيّر كل الباسوردات!**
+
    ```
    - باسورد الـ Admin
    - JWT_SECRET في .env
@@ -520,12 +556,14 @@ http://192.168.1.XXX:3000
    ```
 
 2. **استخدم HTTPS**
+
    ```
    الكاميرا مش هتشتغل على الموبايل بدون HTTPS
    استخدم Let's Encrypt للـ SSL مجاناً
    ```
 
 3. **غيّر FRONTEND_URL في .env**
+
    ```
    من: http://localhost:3000
    لـ: https://yourwebsite.com
@@ -542,6 +580,7 @@ http://192.168.1.XXX:3000
 ## 📊 إحصائيات التطبيق
 
 ✅ **مُنفَّذ بالكامل:**
+
 - 23 ملف
 - 2500+ سطر كود
 - 8 جداول في قاعدة البيانات
@@ -551,6 +590,7 @@ http://192.168.1.XXX:3000
 - معالجة 200+ طالب في نفس الوقت
 
 ✅ **المميزات الرئيسية:**
+
 - QR يتجدد كل 8 ثواني
 - صلاحية 10 ثواني فقط
 - مستحيل تصوير وتشارك الـ QR
@@ -561,8 +601,6 @@ http://192.168.1.XXX:3000
 
 ---
 
-
-
 ## 🎯 ملخص سريع للأوامر
 
 ```bash
@@ -572,17 +610,17 @@ cd rased-system
 
 # 2. تنصيب Backend
 cd backend
-npm install
+yarn install
 
 # 3. تنصيب Frontend
 cd ../frontend
-npm install
+yarn install
 
 # 4. إعداد Database
 cd ../backend
 cp .env.example .env
 # عدّل .env
-npm run init-db
+yarn run init-db
 
 # 5. تشغيل التطبيق (3 Terminals):
 # Terminal 1:
@@ -590,11 +628,11 @@ redis-server
 
 # Terminal 2:
 cd backend
-npm run dev
+yarn run dev
 
 # Terminal 3:
 cd frontend
-npm run dev
+yarn run dev
 
 # 6. افتح المتصفح:
 http://localhost:3000
@@ -606,4 +644,4 @@ admin@rased.edu / admin123
 ---
 
 **الف مبروك! 🎉**
-التطبيق دلوقتي شغال  !
+التطبيق دلوقتي شغال !

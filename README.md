@@ -5,6 +5,7 @@ A professional, secure web application for university attendance management usin
 ## 🚀 Features
 
 ### Anti-Cheating Engine
+
 - **8-second QR rotation** with real-time WebSocket updates
 - **10-second token expiry** validation
 - **AES-256-GCM encryption** for QR tokens
@@ -12,6 +13,7 @@ A professional, secure web application for university attendance management usin
 - **One student, one session** enforcement
 
 ### Professor Dashboard
+
 - Create and manage courses
 - Launch live attendance sessions
 - Large QR display optimized for projectors
@@ -21,19 +23,21 @@ A professional, secure web application for university attendance management usin
 - Export reports to Excel/CSV
 
 ### Student Interface
+
 - Mobile-optimized QR scanner (browser-based, no app needed)
 - Personal attendance history
 - Course-wise attendance percentages
 - Real-time scan feedback
 
 ### Admin Panel
+
 - Manage professor accounts
 - System usage monitoring
 - User management
 
 ## 📋 Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 18+ and yarn
 - PostgreSQL 15+
 - Redis 7+
 - Modern web browser with camera access
@@ -49,11 +53,11 @@ cd rased-system
 
 # Install backend dependencies
 cd backend
-npm install
+yarn install
 
 # Install frontend dependencies
 cd ../frontend
-npm install
+yarn install
 ```
 
 ### 2. Database Setup
@@ -70,12 +74,13 @@ cp .env.example .env
 nano .env
 
 # Initialize database schema
-npm run init-db
+yarn run init-db
 ```
 
 ### 3. Redis Setup
 
 Make sure Redis is running:
+
 ```bash
 # Start Redis (varies by OS)
 redis-server
@@ -122,23 +127,27 @@ FRONTEND_URL=http://localhost:3000
 ### Development Mode
 
 **Terminal 1 - Backend:**
+
 ```bash
 cd backend
-npm run dev
+yarn run dev
 ```
 
 **Terminal 2 - Frontend:**
+
 ```bash
 cd frontend
-npm run dev
+yarn run dev
 ```
 
 **Terminal 3 - Redis:**
+
 ```bash
 redis-server
 ```
 
 Access the application:
+
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:5000/api
 - API Health: http://localhost:5000/api/health
@@ -148,16 +157,16 @@ Access the application:
 ```bash
 # Build frontend
 cd frontend
-npm run build
+yarn run build
 
 # Serve with backend
 cd ../backend
-NODE_ENV=production npm start
+NODE_ENV=production yarn start
 ```
 
 ## 👥 Default Accounts
 
-After running `npm run init-db`, a default admin account is created:
+After running `yarn run init-db`, a default admin account is created:
 
 ```
 Email: admin@rased.edu
@@ -169,12 +178,14 @@ Password: admin123
 ## 📱 User Roles & Access
 
 ### Admin
+
 - Full system access
 - Create professor accounts
 - Monitor system usage
 - User management
 
 ### Professor
+
 - Create/manage courses
 - Add students to courses
 - Launch attendance sessions
@@ -183,6 +194,7 @@ Password: admin123
 - Export data to Excel
 
 ### Student
+
 - Scan QR codes for attendance
 - View personal attendance history
 - Check attendance percentages
@@ -202,6 +214,7 @@ Password: admin123
 ## 📊 API Endpoints
 
 ### Authentication
+
 ```
 POST /api/auth/login
 POST /api/auth/register (Admin/Professor only)
@@ -209,6 +222,7 @@ GET  /api/auth/profile
 ```
 
 ### Courses
+
 ```
 POST /api/courses
 GET  /api/courses
@@ -218,6 +232,7 @@ GET  /api/courses/:courseId/students
 ```
 
 ### Attendance
+
 ```
 POST   /api/attendance/sessions
 PATCH  /api/attendance/sessions/:sessionId/end
@@ -228,6 +243,7 @@ POST   /api/attendance/manual-override
 ```
 
 ### Analytics
+
 ```
 GET /api/analytics/course/:courseId
 GET /api/analytics/student
@@ -237,24 +253,26 @@ GET /api/analytics/export?courseId=xxx&sessionId=yyy
 ## 🔌 WebSocket Events
 
 ### Professor Events
+
 ```javascript
 // Start QR rotation
-socket.emit('start_session', { sessionId })
+socket.emit("start_session", { sessionId });
 
 // Stop session
-socket.emit('stop_session', { sessionId })
+socket.emit("stop_session", { sessionId });
 
 // Listen for QR updates
-socket.on('qr_update', ({ token, timestamp }) => {})
+socket.on("qr_update", ({ token, timestamp }) => {});
 
 // Listen for new attendance
-socket.on('new_attendance', ({ studentName, timestamp }) => {})
+socket.on("new_attendance", ({ studentName, timestamp }) => {});
 ```
 
 ### Student Events
+
 ```javascript
 // Notify attendance recorded
-socket.emit('attendance_recorded', { sessionId, studentName })
+socket.emit("attendance_recorded", { sessionId, studentName });
 ```
 
 ## 🧪 Testing
@@ -301,6 +319,7 @@ socket.emit('attendance_recorded', { sessionId, studentName })
 ## 🐛 Troubleshooting
 
 ### Database Connection Failed
+
 ```bash
 # Check PostgreSQL is running
 pg_isready
@@ -311,6 +330,7 @@ psql -l
 ```
 
 ### Redis Connection Failed
+
 ```bash
 # Check Redis is running
 redis-cli ping
@@ -318,16 +338,19 @@ redis-cli ping
 ```
 
 ### WebSocket Not Connecting
+
 - Verify backend server is running
 - Check CORS settings in server.js
 - Ensure token is valid (check browser console)
 
 ### QR Scanner Not Working
+
 - Grant camera permissions in browser
 - Use HTTPS in production (required for camera access)
 - Check mobile browser compatibility
 
 ### "Expired QR Code" Errors
+
 - Verify server and client clocks are synchronized
 - Check QR_TOKEN_EXPIRY setting (default: 10000ms)
 - Ensure Redis is running (tokens stored here)
@@ -335,18 +358,22 @@ redis-cli ping
 ## 🔧 Configuration Options
 
 ### QR Rotation Speed
+
 Adjust in `.env`:
+
 ```env
 QR_ROTATION_INTERVAL=8000  # milliseconds (8 seconds)
 QR_TOKEN_EXPIRY=10000      # milliseconds (10 seconds)
 ```
 
 ### Rate Limiting
+
 Modify in `backend/server.js`:
+
 ```javascript
 const limiter = rateLimit({
-  windowMs: 60000,  // 1 minute
-  max: 100          // requests per window
+  windowMs: 60000, // 1 minute
+  max: 100, // requests per window
 });
 ```
 
@@ -359,7 +386,7 @@ const limiter = rateLimit({
 FROM node:18-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
+RUN yarn ci --only=production
 COPY . .
 EXPOSE 5000
 CMD ["node", "server.js"]
@@ -368,7 +395,7 @@ CMD ["node", "server.js"]
 ### Using Docker Compose
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   postgres:
     image: postgres:15-alpine
@@ -380,7 +407,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    
+
   backend:
     build: ./backend
     ports:
@@ -404,12 +431,14 @@ volumes:
 ### Cloud Deployment
 
 **AWS / DigitalOcean:**
+
 - Use RDS for PostgreSQL
 - Use ElastiCache for Redis
 - Deploy backend on EC2 / App Platform
 - Serve frontend via S3 + CloudFront / CDN
 
 **SSL Configuration** (required for camera access):
+
 - Use Let's Encrypt / AWS Certificate Manager
 - Configure HTTPS in production
 
@@ -428,6 +457,7 @@ MIT License - See LICENSE file for details
 ## 📞 Support
 
 For issues and questions:
+
 - GitHub Issues: [repository-url]/issues
 - Email: support@rased.edu
 - Documentation: [docs-url]
