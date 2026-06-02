@@ -202,7 +202,14 @@ const AuthProvider = ({ children }) => {
 	const [token, setToken] = useState(localStorage.getItem("token"));
 	const [loading, setLoading] = useState(true);
 
-	const fetchProfile = async () => {
+	const logout = useCallback(() => {
+		setUser(null);
+		setToken(null);
+		localStorage.removeItem("token");
+		delete axios.defaults.headers.common.Authorization;
+	}, []);
+
+	const fetchProfile = useCallback(async () => {
 		try {
 			const response = await axios.get("/auth/profile");
 			setUser(response.data.data.user);
@@ -211,7 +218,7 @@ const AuthProvider = ({ children }) => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [logout]);
 
 	useEffect(() => {
 		if (token) {
@@ -236,13 +243,6 @@ const AuthProvider = ({ children }) => {
 		setToken(accessToken);
 		setUser(user);
 		return user;
-	};
-
-	const logout = () => {
-		setUser(null);
-		setToken(null);
-		localStorage.removeItem("token");
-		delete axios.defaults.headers.common.Authorization;
 	};
 
 	return (
@@ -1395,7 +1395,7 @@ const AdminDashboard = () => {
 	});
 	const [_confirmDelete, _setConfirmDelete] = useState(null);
 
-	const fetchUsers = async () => {
+	const fetchUsers = useCallback(async () => {
 		try {
 			const res = await axios.get("/admin/users");
 			setUsers(res.data.data.users);
@@ -1404,7 +1404,7 @@ const AdminDashboard = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [addToast]);
 
 	useEffect(() => {
 		fetchUsers();
@@ -1799,14 +1799,10 @@ const ProfessorDashboard = () => {
 	const [confirmDelete, setConfirmDelete] = useState(null);
 	const addToast = useToast();
 
-	const fetchCourses = async () => {
+	const fetchCourses = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await axios.get("/courses/");
-			// ✅ FIX: Guard against unexpected response shapes. Previously, accessing
-			// res.data.data.courses when `data` was undefined threw a TypeError, which
-			// landed in the catch block and showed the error toast even though the
-			// request itself succeeded and the courses rendered correctly.
 			const fetchedCourses = res.data?.data?.courses;
 			if (!Array.isArray(fetchedCourses)) {
 				console.error("[fetchCourses] Unexpected response shape:", res.data);
@@ -1820,7 +1816,7 @@ const ProfessorDashboard = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [addToast]);
 
 	useEffect(() => {
 		fetchCourses();
