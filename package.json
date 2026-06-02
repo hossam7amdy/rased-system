@@ -1,19 +1,25 @@
 {
-  "name": "rased-system",
-  "version": "1.0.0",
-  "private": true,
-  "description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
-  "scripts": {
-    "start": "node backend/server.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/hossam7amdy/rased-system.git"
-  },
-  "workspaces": ["backend"],
-  "author": "Hossam Hamdy <hossamhamdy117@gmail.com>",
-  "bugs": {
-    "url": "https://github.com/hossam7amdy/rased-system/issues"
-  },
-  "homepage": "https://github.com/hossam7amdy/rased-system#readme"
+	"name": "rased-system",
+	"version": "1.0.0",
+	"private": true,
+	"description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
+	"scripts": {
+		"start": "node backend/server.js"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/hossam7amdy/rased-system.git"
+	},
+	"workspaces": [
+		"backend"
+	],
+	"author": "Hossam Hamdy <hossamhamdy117@gmail.com>",
+	"bugs": {
+		"url": "https://github.com/hossam7amdy/rased-system/issues"
+	},
+	"homepage": "https://github.com/hossam7amdy/rased-system#readme",
+	"devDependencies": {
+		"@biomejs/biome": "2.4.16"
+	},
+	"packageManager": "yarn@1.22.22"
 }
