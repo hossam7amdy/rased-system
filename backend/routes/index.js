@@ -98,6 +98,12 @@ router.post(
 );
 
 router.get(
+	"/attendance/current-qr/:courseId",
+	auth.verifyToken,
+	auth.checkRole("professor"),
+	attendanceController.getCurrentQR,
+);
+router.get(
 	"/attendance/sessions/:sessionId",
 	auth.verifyToken,
 	attendanceController.getSessionAttendance,

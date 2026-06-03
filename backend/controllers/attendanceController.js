@@ -1,6 +1,7 @@
 const pool = require("../config/database");
-const _TokenEncryption = require("../utils/tokenEncryption");
+const TokenEncryption = require("../utils/tokenEncryption");
 const qrTokenService = require("../services/qrTokenService");
+const cacheClient = require("../config/redis");
 const ExcelJS = require("exceljs");
 
 /**
@@ -447,7 +448,36 @@ const attendanceController = {
 	},
 
 	// ============================================================
-	// 8. تصدير الحضور إلى Excel (الدكتور)
+	// 8. جلب التوكن الحالي للـ QR (الدكتور - polling fallback)
+	// GET /api/attendance/current-qr/:courseId
+	// ============================================================
+	getCurrentQR: async (req, res) => {
+		try {
+			const { courseId } = req.params;
+			const token = await cacheClient.get(`active_qr_session_${courseId}`);
+
+			if (!token) {
+				return res.status(404).json({
+					success: false,
+					message: "لا توجد جلسة QR نشطة لهذه المادة.",
+				});
+			}
+
+			const { t: generatedAt } = TokenEncryption.decrypt(token);
+			const remainingSeconds = Math.max(
+				0,
+				Math.round(10 - (Date.now() - generatedAt) / 1000),
+			);
+
+			return res.json({ success: true, data: { token, remainingSeconds } });
+		} catch (error) {
+			console.error("❌ Get current QR error:", error);
+			res.status(500).json({ success: false, message: "Error fetching QR." });
+		}
+	},
+
+	// ============================================================
+	// 9. تصدير الحضور إلى Excel (الدكتور)
 	// GET /api/attendance/export/:courseId
 	// ============================================================
 	exportAttendance: async (req, res) => {

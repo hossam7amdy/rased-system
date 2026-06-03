@@ -85,13 +85,16 @@ class QRTokenService {
 			// 2. حماية من الـ Replay Attack (منع مسح نفس الكود مرتين)
 			const tokenHash = TokenEncryption.hash(token);
 			const replayKey = `used_qr:${tokenHash}`;
-			const alreadyUsed = await redisClient.get(replayKey);
 
-			if (alreadyUsed) {
-				return { valid: false, message: "تم استخدام هذا الرمز مسبقاً." };
+			if (redisClient.isOpen) {
+				const alreadyUsed = await redisClient.get(replayKey);
+
+				if (alreadyUsed) {
+					return { valid: false, message: "تم استخدام هذا الرمز مسبقاً." };
+				}
+				// تسجيل الكود كـ "مستخدم" لمدة 15 ثانية
+				await redisClient.setEx(replayKey, 15, "true");
 			}
-			// تسجيل الكود كـ "مستخدم" لمدة 15 ثانية
-			await redisClient.setEx(replayKey, 15, "true");
 
 			console.log(`✅ [SUCCESS] Token validated for session: ${sessionId}`);
 			return { valid: true, courseId: sessionId };
