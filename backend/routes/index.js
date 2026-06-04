@@ -1,207 +1,205 @@
-const express = require("express");
-const pool = require("../config/database");
-const authController = require("../controllers/authController");
-const coursesController = require("../controllers/coursesController");
-const attendanceController = require("../controllers/attendanceController");
-const analyticsController = require("../controllers/analyticsController");
-const auth = require("../middleware/auth");
+import { Router } from "express";
+import pool from "../config/database.js";
+import {
+  exportAttendance,
+  getCourseAnalytics,
+  getStudentAnalytics,
+} from "../controllers/analyticsController.js";
+import {
+  createSession,
+  endSession,
+  getActiveSessions,
+  getCurrentQR,
+  getSessionAttendance,
+  getStudentAttendance,
+  manualOverride,
+  scanQR,
+} from "../controllers/attendanceController.js";
+import { getProfile, login, register } from "../controllers/authController.js";
+import {
+  createCourse,
+  deleteCourse,
+  enrollStudentInCourse,
+  enrollStudents,
+  getCourseDetails,
+  getCourseStudents,
+  getProfessorCourses,
+  getStudentCourses,
+} from "../controllers/coursesController.js";
+import { checkRole, verifyToken } from "../middleware/auth.js";
 
-const router = express.Router();
+const router = Router();
 
 // ============ AUTH ROUTES ============
-router.post("/auth/login", authController.login);
+router.post("/auth/login", login);
 router.post(
-	"/auth/register",
-	auth.verifyToken,
-	auth.checkRole("admin", "professor"),
-	authController.register,
+  "/auth/register",
+  verifyToken,
+  checkRole("admin", "professor"),
+  register,
 );
-router.get("/auth/profile", auth.verifyToken, authController.getProfile);
+router.get("/auth/profile", verifyToken, getProfile);
 
 // ============ COURSES ROUTES ============
-router.post(
-	"/courses",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	coursesController.createCourse,
-);
+router.post("/courses", verifyToken, checkRole("professor"), createCourse);
 router.delete(
-	"/courses/:courseId",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	coursesController.deleteCourse,
+  "/courses/:courseId",
+  verifyToken,
+  checkRole("professor"),
+  deleteCourse,
 );
 
 // المسار الجديد الذي سيستخدمه الطالب لعرض مواده في الـ Dashboard
 router.get(
-	"/courses/my-courses",
-	auth.verifyToken,
-	auth.checkRole("student"),
-	coursesController.getStudentCourses,
+  "/courses/my-courses",
+  verifyToken,
+  checkRole("student"),
+  getStudentCourses,
 );
 
-router.get("/courses", auth.verifyToken, (req, res) => {
-	if (req.user.role === "professor") {
-		return coursesController.getProfessorCourses(req, res);
-	} else if (req.user.role === "student") {
-		return coursesController.getStudentCourses(req, res);
-	}
-	return res.status(403).json({ success: false, message: "Access denied." });
+router.get("/courses", verifyToken, (req, res) => {
+  if (req.user.role === "professor") {
+    return getProfessorCourses(req, res);
+  } else if (req.user.role === "student") {
+    return getStudentCourses(req, res);
+  }
+  return res.status(403).json({ success: false, message: "Access denied." });
 });
 
-router.get(
-	"/courses/:courseId",
-	auth.verifyToken,
-	coursesController.getCourseDetails,
-);
+router.get("/courses/:courseId", verifyToken, getCourseDetails);
 router.post(
-	"/courses/:courseId/enroll",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	coursesController.enrollStudents,
+  "/courses/:courseId/enroll",
+  verifyToken,
+  checkRole("professor"),
+  enrollStudents,
 );
 router.get(
-	"/courses/:courseId/students",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	coursesController.getCourseStudents,
+  "/courses/:courseId/students",
+  verifyToken,
+  checkRole("professor"),
+  getCourseStudents,
 );
 
 // ============ ATTENDANCE ROUTES ============
 // ملاحظة: يمكنك الإبقاء على active-sessions أو حذفها، لكن الطالب الآن سيعتمد على my-courses
 router.get(
-	"/attendance/active-sessions",
-	auth.verifyToken,
-	auth.checkRole("student"),
-	attendanceController.getActiveSessions,
+  "/attendance/active-sessions",
+  verifyToken,
+  checkRole("student"),
+  getActiveSessions,
 );
 
 router.post(
-	"/attendance/sessions",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	attendanceController.createSession,
+  "/attendance/sessions",
+  verifyToken,
+  checkRole("professor"),
+  createSession,
 );
 router.patch(
-	"/attendance/sessions/:sessionId/end",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	attendanceController.endSession,
+  "/attendance/sessions/:sessionId/end",
+  verifyToken,
+  checkRole("professor"),
+  endSession,
 );
 
 // المسار الأهم: معالجة عملية المسح بناءً على المادة أو الجلسة
-router.post(
-	"/attendance/scan",
-	auth.verifyToken,
-	auth.checkRole("student"),
-	attendanceController.scanQR,
-);
+router.post("/attendance/scan", verifyToken, checkRole("student"), scanQR);
 
 router.get(
-	"/attendance/current-qr/:courseId",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	attendanceController.getCurrentQR,
+  "/attendance/current-qr/:courseId",
+  verifyToken,
+  checkRole("professor"),
+  getCurrentQR,
 );
 router.get(
-	"/attendance/sessions/:sessionId",
-	auth.verifyToken,
-	attendanceController.getSessionAttendance,
+  "/attendance/sessions/:sessionId",
+  verifyToken,
+  getSessionAttendance,
 );
 router.get(
-	"/attendance/student",
-	auth.verifyToken,
-	auth.checkRole("student"),
-	attendanceController.getStudentAttendance,
+  "/attendance/student",
+  verifyToken,
+  checkRole("student"),
+  getStudentAttendance,
 );
 router.post(
-	"/attendance/manual-override",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	attendanceController.manualOverride,
+  "/attendance/manual-override",
+  verifyToken,
+  checkRole("professor"),
+  manualOverride,
 );
 
 // ============ ANALYTICS ROUTES ============
 router.get(
-	"/analytics/course/:courseId",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	analyticsController.getCourseAnalytics,
+  "/analytics/course/:courseId",
+  verifyToken,
+  checkRole("professor"),
+  getCourseAnalytics,
 );
 router.get(
-	"/analytics/student",
-	auth.verifyToken,
-	auth.checkRole("student"),
-	analyticsController.getStudentAnalytics,
+  "/analytics/student",
+  verifyToken,
+  checkRole("student"),
+  getStudentAnalytics,
 );
 router.get(
-	"/analytics/export",
-	auth.verifyToken,
-	auth.checkRole("professor"),
-	analyticsController.exportAttendance,
+  "/analytics/export",
+  verifyToken,
+  checkRole("professor"),
+  exportAttendance,
 );
 
 // ============ ADMIN ROUTES ============
-const adminController = require("../controllers/adminController");
+import {
+  enrollBulk,
+  enrollImport,
+  getAllCourses,
+  getAllStudents,
+} from "../controllers/adminController.js";
 
 router.get(
-	"/admin/users",
-	auth.verifyToken,
-	auth.checkRole("admin"),
-	async (_req, res) => {
-		try {
-			const result = await pool.query(
-				"SELECT id, email, role, full_name, student_id, created_at FROM users ORDER BY created_at DESC",
-			);
-			res.json({ success: true, data: { users: result.rows } });
-		} catch (_error) {
-			res
-				.status(500)
-				.json({ success: false, message: "Error fetching users." });
-		}
-	},
+  "/admin/users",
+  verifyToken,
+  checkRole("admin"),
+  async (_req, res) => {
+    try {
+      const result = await pool.query(
+        "SELECT id, email, role, full_name, student_id, created_at FROM users ORDER BY created_at DESC",
+      );
+      res.json({ success: true, data: { users: result.rows } });
+    } catch (_error) {
+      res
+        .status(500)
+        .json({ success: false, message: "Error fetching users." });
+    }
+  },
 );
 
 // Student & course lists (support ?q= search)
-router.get(
-	"/admin/students",
-	auth.verifyToken,
-	auth.checkRole("admin"),
-	adminController.getAllStudents,
-);
-router.get(
-	"/admin/courses",
-	auth.verifyToken,
-	auth.checkRole("admin"),
-	adminController.getAllCourses,
-);
+router.get("/admin/students", verifyToken, checkRole("admin"), getAllStudents);
+router.get("/admin/courses", verifyToken, checkRole("admin"), getAllCourses);
 
 // Single enroll (legacy — kept for backward compat)
 router.post(
-	"/admin/enroll",
-	auth.verifyToken,
-	auth.checkRole("admin"),
-	coursesController.enrollStudentInCourse,
+  "/admin/enroll",
+  verifyToken,
+  checkRole("admin"),
+  enrollStudentInCourse,
 );
 
 // Bulk enroll: N students × M courses in one shot
-router.post(
-	"/admin/enroll-bulk",
-	auth.verifyToken,
-	auth.checkRole("admin"),
-	adminController.enrollBulk,
-);
+router.post("/admin/enroll-bulk", verifyToken, checkRole("admin"), enrollBulk);
 
 // Excel import: parsed rows from the frontend
 router.post(
-	"/admin/enroll-import",
-	auth.verifyToken,
-	auth.checkRole("admin"),
-	adminController.enrollImport,
+  "/admin/enroll-import",
+  verifyToken,
+  checkRole("admin"),
+  enrollImport,
 );
 
 router.get("/health", (_req, res) => {
-	res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-module.exports = router;
+export default router;
