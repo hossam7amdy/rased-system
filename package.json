@@ -4,7 +4,8 @@
 	"private": true,
 	"description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
 	"scripts": {
-		"start": "node backend/server.js"
+		"start": "node backend/server.js",
+		"check:fix": "biome check --write"
 	},
 	"repository": {
 		"type": "git",
