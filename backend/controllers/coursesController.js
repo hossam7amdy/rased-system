@@ -203,24 +203,24 @@ const coursesController = {
         });
       }
 
-      const enrollments = [];
-      for (const studentId of studentIds) {
-        try {
-          const result = await pool.query(
-            `INSERT INTO enrollments (course_id, student_id)
-             VALUES ($1, $2)
-             ON CONFLICT (course_id, student_id) DO NOTHING
-             RETURNING *`,
-            [courseId, studentId],
-          );
-
-          if (result.rows.length > 0) {
-            enrollments.push(result.rows[0]);
+      const enrollmentResults = await Promise.all(
+        studentIds.map(async (studentId) => {
+          try {
+            const result = await pool.query(
+              `INSERT INTO enrollments (course_id, student_id)
+               VALUES ($1, $2)
+               ON CONFLICT (course_id, student_id) DO NOTHING
+               RETURNING *`,
+              [courseId, studentId],
+            );
+            return result.rows[0] || null;
+          } catch (error) {
+            console.error(`Failed to enroll student ${studentId}:`, error);
+            return null;
           }
-        } catch (error) {
-          console.error(`Failed to enroll student ${studentId}:`, error);
-        }
-      }
+        }),
+      );
+      const enrollments = enrollmentResults.filter(Boolean);
 
       res.json({
         success: true,

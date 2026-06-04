@@ -210,16 +210,24 @@ const adminController = {
 
     // Maps: normalised key → DB id
     const studentByUnivId = new Map(
-      studentsRes.rows.map((s) => [s.student_id?.trim().toLowerCase(), s.id]),
+      studentsRes.rows
+        .filter((s) => s.student_id)
+        .map((s) => [s.student_id.trim().toLowerCase(), s.id]),
     );
     const studentByName = new Map(
-      studentsRes.rows.map((s) => [s.full_name?.trim().toLowerCase(), s.id]),
+      studentsRes.rows
+        .filter((s) => s.full_name)
+        .map((s) => [s.full_name.trim().toLowerCase(), s.id]),
     );
     const courseByCode = new Map(
-      coursesRes.rows.map((c) => [c.course_code?.trim().toLowerCase(), c.id]),
+      coursesRes.rows
+        .filter((c) => c.course_code)
+        .map((c) => [c.course_code.trim().toLowerCase(), c.id]),
     );
     const courseByName = new Map(
-      coursesRes.rows.map((c) => [c.course_name?.trim().toLowerCase(), c.id]),
+      coursesRes.rows
+        .filter((c) => c.course_name)
+        .map((c) => [c.course_name.trim().toLowerCase(), c.id]),
     );
 
     // ── 2. Resolve each row ───────────────────────────────────────────────────
