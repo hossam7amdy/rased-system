@@ -1,11 +1,6 @@
+import "../config/env.js";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
-
-try {
-  process.loadEnvFile();
-} catch {
-  // No .env file — rely on real environment variables.
-}
 
 const pool = new Pool({
   host: process.env.DB_HOST,

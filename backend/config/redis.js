@@ -1,12 +1,5 @@
+import "./env.js";
 import { createClient } from "redis";
-
-// Loaded at module-eval time: server.js's process.loadEnvFile() runs after
-// imports, so this module must load env itself before reading REDIS_HOST.
-try {
-  process.loadEnvFile();
-} catch {
-  // No .env file — rely on real environment variables (e.g. production).
-}
 
 class InMemoryCache {
   constructor() {
