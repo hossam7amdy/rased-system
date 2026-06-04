@@ -1,12 +1,5 @@
+import "./env.js";
 import { Pool } from "pg";
-
-// Load .env at module-eval time. server.js's process.loadEnvFile() runs after
-// imports are evaluated, so this module must load env itself before Pool reads it.
-try {
-  process.loadEnvFile();
-} catch {
-  // No .env file — rely on real environment variables (e.g. production).
-}
 
 const pool = new Pool({
   host: process.env.DB_HOST,
@@ -17,13 +10,11 @@ const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
-  // 👇 أضف هذا السطر هنا
   client_encoding: "UTF8",
 });
 
-pool.on("connect", (client) => {
-  // 👇 وأضف هذا السطر للتأكيد الإضافي عند كل اتصال جديد
-  client.query('SET client_encoding TO "UTF8"');
+pool.on("connect", () => {
+  // Encoding is set via the client_encoding pool option above.
   console.log("📊 Connected to PostgreSQL database (UTF8)");
 });
 

@@ -1,3 +1,4 @@
+import "./config/env.js";
 import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
 import cors from "cors";
@@ -10,8 +11,6 @@ import { Server } from "socket.io";
 import { end } from "./config/database.js";
 import routes from "./routes/index.js";
 import { startRotation, stopRotation } from "./services/qrTokenService.js";
-
-process.loadEnvFile();
 
 // --- [إعداد تطبيق Express] ---
 const app = express();
