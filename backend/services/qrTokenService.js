@@ -1,150 +1,135 @@
-import redisClient from "../config/redis.js";
+import cacheClient from "../config/redis.js";
 import TokenEncryption from "../utils/tokenEncryption.js";
 
+// تدوير الكود كل 8 ثوانٍ على الشاشة
+export const ROTATION_INTERVAL_MS = 8000;
+// نافذة صلاحية التوكن: أطول من فترة التدوير + تأخير الـ polling لمنع الـ race
+// (الشاشة تتأخر حتى 3 ثوانٍ في جلب الكود، لذا 20 ثانية تغطي تدويرة كاملة)
+export const TOKEN_VALIDITY_MS = 20000;
+const TOKEN_VALIDITY_SEC = Math.ceil(TOKEN_VALIDITY_MS / 1000);
+
 class QRTokenService {
-  constructor() {
-    // Map لتخزين الفواصل الزمنية (Intervals) لكل مادة
-    this.activeRotations = new Map();
-  }
+	constructor() {
+		// Map لتخزين الفواصل الزمنية (Intervals) لكل مادة
+		this.activeRotations = new Map();
+	}
 
-  /**
-   * توليد توكن جديد وتخزينه في Redis
-   */
-  async generateToken(sessionId) {
-    try {
-      const timestamp = Date.now();
-      // نستخدم sessionId كاسم موحد سواء كان معرف مادة أو معرف جلسة
-      const tokenData = { sId: sessionId.toString(), t: timestamp };
-      const encryptedToken = TokenEncryption.encrypt(tokenData);
+	/**
+	 * توليد توكن جديد وتخزينه في الكاش (Redis أو in-memory)
+	 */
+	async generateToken(sessionId) {
+		const timestamp = Date.now();
+		// نستخدم sessionId كاسم موحد سواء كان معرف مادة أو معرف جلسة
+		const tokenData = { sId: sessionId.toString(), t: timestamp };
+		const encryptedToken = TokenEncryption.encrypt(tokenData);
 
-      if (redisClient.isOpen) {
-        // المفتاح في رديس يربط الجلسة بأحدث توكن صالح لها
-        const redisKey = `active_qr_session_${sessionId}`;
+		// نخزّن أحدث توكن صالح ليقرأه الدكتور عبر getCurrentQR (polling)
+		const cacheKey = `active_qr_session_${sessionId}`;
+		try {
+			await cacheClient.set(cacheKey, encryptedToken, {
+				EX: TOKEN_VALIDITY_SEC,
+			});
+			console.log(
+				`🆕 [QR_STORED] Session: ${sessionId} | Token: ${encryptedToken.substring(0, 12)}...`,
+			);
+		} catch (err) {
+			// فشل الكاش لا يمنع التوليد — الصلاحية تُتحقق من التوقيت داخل التوكن
+			console.error("⚠️ [CACHE_WRITE_SKIPPED]:", err.message);
+		}
 
-        // EX: 10 ثوانٍ (صلاحية الكود في رديس أطول بـ 2 ثانية من وقت التحديث)
-        await redisClient.set(redisKey, encryptedToken, {
-          EX: 10,
-        });
+		return { token: encryptedToken, timestamp };
+	}
 
-        console.log(
-          `🆕 [REDIS_STORED] Session: ${sessionId} | Token: ${encryptedToken.substring(0, 10)}...`,
-        );
-      } else {
-        console.error("⚠️ Redis client is not open!");
-      }
+	/**
+	 * التحقق من التوكن القادم من الطالب.
+	 * يعتمد على نافذة زمنية (freshness window) بدلاً من المطابقة الحرفية مع
+	 * أحدث توكن في الكاش — هذا يلغي الـ race بين تدوير الكود و polling الشاشة.
+	 * سلامة التوكن مضمونة بتشفير AES-GCM (أي تلاعب يُفشل فك التشفير).
+	 */
+	async validateToken(token) {
+		// 1. فك التشفير والتحقق من السلامة (يرمي خطأ إذا تم التلاعب أو فسد الكود)
+		let decoded;
+		try {
+			decoded = TokenEncryption.decrypt(token);
+		} catch (_err) {
+			return { valid: false, message: "رمز غير صالح أو تالف." };
+		}
 
-      return { token: encryptedToken, timestamp };
-    } catch (err) {
-      console.error("❌ [GENERATION_ERROR]:", err);
-      throw err;
-    }
-  }
+		const sessionId = decoded.sId;
+		const issuedAt = decoded.t;
 
-  /**
-   * التحقق من التوكن القادم من الطالب
-   */
-  async validateToken(token) {
-    try {
-      // 1. فك التشفير لمعرفة الجلسة المقصودة
-      const decodedData = TokenEncryption.decrypt(token);
-      const sessionId = decodedData.sId;
+		if (!sessionId || !issuedAt) {
+			return { valid: false, message: "بيانات الرمز غير مكتملة." };
+		}
 
-      if (!sessionId) {
-        return { valid: false, message: "بيانات الرمز غير مكتملة." };
-      }
+		// 2. التحقق من نافذة الصلاحية الزمنية
+		const age = Date.now() - issuedAt;
+		if (age < 0 || age > TOKEN_VALIDITY_MS) {
+			console.error(`🚫 [EXPIRED] Token for session ${sessionId} is too old.`);
+			return {
+				valid: false,
+				message: "انتهى وقت الرمز، انتظر الكود الجديد على الشاشة.",
+			};
+		}
 
-      console.log(`📥 [VALIDATING] Request for Session: ${sessionId}`);
+		// 3. حماية من الـ Replay (منع مسح نفس الكود مرتين) — best-effort
+		const replayKey = `used_qr:${TokenEncryption.hash(token)}`;
+		try {
+			const alreadyUsed = await cacheClient.get(replayKey);
+			if (alreadyUsed) {
+				return { valid: false, message: "تم استخدام هذا الرمز مسبقاً." };
+			}
+			await cacheClient.setEx(replayKey, TOKEN_VALIDITY_SEC, "true");
+		} catch (err) {
+			// فشل الكاش لا يمنع التحضير — الـ DB يمنع التكرار في نفس الجلسة
+			console.error("⚠️ [REPLAY_CHECK_SKIPPED]:", err.message);
+		}
 
-      if (redisClient.isOpen) {
-        const redisKey = `active_qr_session_${sessionId}`;
-        const latestToken = await redisClient.get(redisKey);
+		console.log(`✅ [SUCCESS] Token validated for session: ${sessionId}`);
+		return { valid: true, courseId: sessionId };
+	}
 
-        // إذا لم يجد توكن في رديس (انتهت الـ 10 ثوانٍ)
-        if (!latestToken) {
-          console.error(
-            `🚫 [EXPIRED] Session ${sessionId} has no active token in Redis.`,
-          );
-          return {
-            valid: false,
-            message: "انتهى وقت الرمز، انتظر الكود الجديد على الشاشة.",
-          };
-        }
+	/**
+	 * بدء تدوير الأكواد وإرسالها عبر السوكيت
+	 */
+	startRotation(sessionId, io) {
+		// إيقاف أي تدوير قديم لنفس الجلسة منعاً للتداخل
+		this.stopRotation(sessionId);
 
-        // مقارنة التوكن المرسل بالتوكن الحالي في رديس
-        if (latestToken !== token) {
-          console.error(
-            `❌ [MISMATCH] Student sent an outdated token for session ${sessionId}`,
-          );
-          return {
-            valid: false,
-            message: "هذا الرمز لم يعد صالحاً، امسح الكود الظاهر حالياً.",
-          };
-        }
-      }
+		const rotate = async () => {
+			try {
+				const { token, timestamp } = await this.generateToken(sessionId);
 
-      // 2. حماية من الـ Replay Attack (منع مسح نفس الكود مرتين)
-      const tokenHash = TokenEncryption.hash(token);
-      const replayKey = `used_qr:${tokenHash}`;
+				// إرسال التوكن لغرفة السوكيت الخاصة بالجلسة
+				// تأكد أن الدكتور عمل socket.join(sessionId)
+				io.to(sessionId.toString()).emit("qr_update", { token, timestamp });
 
-      if (redisClient.isOpen) {
-        const alreadyUsed = await redisClient.get(replayKey);
+				console.log(`📡 [SOCKET_EMIT] Token sent to room: ${sessionId}`);
+			} catch (err) {
+				console.error("🔥 [ROTATION_STEP_ERROR]:", err);
+			}
+		};
 
-        if (alreadyUsed) {
-          return { valid: false, message: "تم استخدام هذا الرمز مسبقاً." };
-        }
-        // تسجيل الكود كـ "مستخدم" لمدة 15 ثانية
-        await redisClient.setEx(replayKey, 15, "true");
-      }
+		// تنفيذ أول مرة فوراً
+		rotate();
 
-      console.log(`✅ [SUCCESS] Token validated for session: ${sessionId}`);
-      return { valid: true, courseId: sessionId };
-    } catch (error) {
-      console.error("🔥 [VALIDATION_ERROR]:", error.message);
-      return { valid: false, message: "رمز غير صالح أو تالف." };
-    }
-  }
+		// إعداد التكرار
+		const interval = setInterval(rotate, ROTATION_INTERVAL_MS);
+		this.activeRotations.set(sessionId.toString(), interval);
+	}
 
-  /**
-   * بدء تدوير الأكواد وإرسالها عبر السوكيت
-   */
-  startRotation(sessionId, io) {
-    // إيقاف أي تدوير قديم لنفس الجلسة منعاً للتداخل
-    this.stopRotation(sessionId);
-
-    const rotate = async () => {
-      try {
-        const { token, timestamp } = await this.generateToken(sessionId);
-
-        // إرسال التوكن لغرفة السوكيت الخاصة بالجلسة
-        // تأكد أن الدكتور عمل socket.join(sessionId)
-        io.to(sessionId.toString()).emit("qr_update", { token, timestamp });
-
-        console.log(`📡 [SOCKET_EMIT] Token sent to room: ${sessionId}`);
-      } catch (err) {
-        console.error("🔥 [ROTATION_STEP_ERROR]:", err);
-      }
-    };
-
-    // تنفيذ أول مرة فوراً
-    rotate();
-
-    // إعداد التكرار كل 8 ثوانٍ
-    const interval = setInterval(rotate, 8000);
-    this.activeRotations.set(sessionId.toString(), interval);
-  }
-
-  /**
-   * إيقاف تدوير الأكواد
-   */
-  stopRotation(sessionId) {
-    const sIdStr = sessionId.toString();
-    const interval = this.activeRotations.get(sIdStr);
-    if (interval) {
-      clearInterval(interval);
-      this.activeRotations.delete(sIdStr);
-      console.log(`⏹️ [ROTATION_STOPPED] Session: ${sIdStr}`);
-    }
-  }
+	/**
+	 * إيقاف تدوير الأكواد
+	 */
+	stopRotation(sessionId) {
+		const sIdStr = sessionId.toString();
+		const interval = this.activeRotations.get(sIdStr);
+		if (interval) {
+			clearInterval(interval);
+			this.activeRotations.delete(sIdStr);
+			console.log(`⏹️ [ROTATION_STOPPED] Session: ${sIdStr}`);
+		}
+	}
 }
 
 const qrTokenService = new QRTokenService();
@@ -152,4 +137,3 @@ const qrTokenService = new QRTokenService();
 export default qrTokenService;
 export const startRotation = qrTokenService.startRotation.bind(qrTokenService);
 export const stopRotation = qrTokenService.stopRotation.bind(qrTokenService);
-

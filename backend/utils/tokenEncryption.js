@@ -1,70 +1,89 @@
-import { createHash, randomBytes } from "node:crypto";
+import {
+	createCipheriv,
+	createDecipheriv,
+	createHash,
+	randomBytes,
+	scryptSync,
+} from "node:crypto";
 
-// ملاحظة: تم تبسيط الكود ليعمل بدون تشفير حقيقي لتسهيل عملية الـ Scan
+// مفتاح احتياطي في حال غياب QR_SECRET من ملف .env (نفس نمط auth.js)
+const DEFAULT_QR_SECRET = "rased_super_secret_key_2024_qr_signing";
+
+const ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 12; // 96-bit IV الموصى به لـ GCM
+
+// نشتق مفتاح 32 بايت مرة واحدة عند تحميل الموديول
+const KEY = scryptSync(
+	process.env.QR_SECRET || DEFAULT_QR_SECRET,
+	"rased_qr_salt",
+	32,
+);
+
 const TokenEncryption = {
-  /**
-   * تمرير البيانات كـ Base64 بدلاً من التشفير
-   * @param {Object} data - بيانات التوكن
-   * @returns {string} - نص سهل القراءة/فك الترميز
-   */
-  encrypt(data) {
-    try {
-      // تحويل الكائن إلى نص JSON ثم إلى Base64 لسهولة النقل
-      const jsonData = JSON.stringify(data);
-      const simpleToken = Buffer.from(jsonData).toString("base64");
+	/**
+	 * تشفير البيانات بـ AES-256-GCM (تشفير موثّق: أي تلاعب يفشل فك التشفير)
+	 * @param {Object} data - بيانات التوكن
+	 * @returns {string} - بصيغة iv:authTag:ciphertext (hex)
+	 */
+	encrypt(data) {
+		try {
+			const iv = randomBytes(IV_LENGTH);
+			const cipher = createCipheriv(ALGORITHM, KEY, iv);
 
-      // نضع تنسيقاً وهمياً (iv:tag:data) لكي لا نضطر لتغيير كود الـ QR بالكامل
-      // سنضع قيم ثابتة مكان الـ IV والـ Tag
-      return `dummy_iv:dummy_tag:${simpleToken}`;
-    } catch (error) {
-      console.error("Simulated Encryption error:", error);
-      throw new Error("Token processing failed");
-    }
-  },
+			const json = JSON.stringify(data);
+			const encrypted = Buffer.concat([
+				cipher.update(json, "utf8"),
+				cipher.final(),
+			]);
+			const authTag = cipher.getAuthTag();
 
-  /**
-   * فك ترميز البيانات (بدون مفاتيح تشفير)
-   * @param {string} encryptedToken - التوكن القادم من السكنر
-   * @returns {Object} - البيانات الأصلية
-   */
-  decrypt(encryptedToken) {
-    try {
-      const parts = encryptedToken.split(":");
+			return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
+		} catch (error) {
+			console.error("Encryption error:", error);
+			throw new Error("Token processing failed");
+		}
+	},
 
-      // إذا كان الكود قادم بالتنسيق الجديد (3 أجزاء)
-      if (parts.length === 3) {
-        const base64Data = parts[2];
-        const jsonData = Buffer.from(base64Data, "base64").toString("utf8");
-        return JSON.parse(jsonData);
-      }
+	/**
+	 * فك تشفير التوكن والتحقق من سلامته (auth tag)
+	 * @param {string} encryptedToken - بصيغة iv:authTag:ciphertext
+	 * @returns {Object} - البيانات الأصلية
+	 */
+	decrypt(encryptedToken) {
+		const parts = encryptedToken?.split(":");
+		if (parts?.length !== 3) {
+			throw new Error("Token decoding failed - Invalid Format");
+		}
 
-      // إذا كان الكود قادم كـ JSON مباشر أو Base64 فقط (للاحتياط)
-      const rawData = Buffer.from(encryptedToken, "base64").toString("utf8");
-      return JSON.parse(rawData);
-    } catch (error) {
-      console.error("Decoding error:", error);
-      // إذا فشل كل شيء، نحاول إرجاع النص كما هو إذا كان JSON
-      try {
-        return JSON.parse(encryptedToken);
-      } catch (_e) {
-        throw new Error("Token decoding failed - Invalid Format");
-      }
-    }
-  },
+		const [ivHex, authTagHex, dataHex] = parts;
+		const decipher = createDecipheriv(
+			ALGORITHM,
+			KEY,
+			Buffer.from(ivHex, "hex"),
+		);
+		decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
 
-  /**
-   * توليد Hash للمفتاح في Redis (يبقى كما هو لأنه لا يسبب مشاكل)
-   */
-  hash(token) {
-    return createHash("sha256").update(token).digest("hex");
-  },
+		const decrypted = Buffer.concat([
+			decipher.update(Buffer.from(dataHex, "hex")),
+			decipher.final(), // يرمي خطأ إذا تم التلاعب بالتوكن
+		]);
 
-  /**
-   * توليد Salt عشوائي
-   */
-  generateSalt() {
-    return randomBytes(16).toString("hex");
-  },
+		return JSON.parse(decrypted.toString("utf8"));
+	},
+
+	/**
+	 * توليد Hash للمفتاح في Redis
+	 */
+	hash(token) {
+		return createHash("sha256").update(token).digest("hex");
+	},
+
+	/**
+	 * توليد Salt عشوائي
+	 */
+	generateSalt() {
+		return randomBytes(16).toString("hex");
+	},
 };
 
 export default TokenEncryption;
