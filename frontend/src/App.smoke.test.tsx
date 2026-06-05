@@ -43,7 +43,7 @@ vi.mock("axios", () => {
 });
 
 // App reads from these at module load; import after the mock is registered.
-const { default: App } = await import("./App.jsx");
+const { default: App } = await import("./app/App");
 
 const profile = (role: string) => ({
 	data: { success: true, data: { user: { id: 1, full_name: "Test", role } } },

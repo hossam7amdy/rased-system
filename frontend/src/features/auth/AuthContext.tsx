@@ -1,4 +1,3 @@
-import axios from "axios";
 import {
 	createContext,
 	type ReactNode,
@@ -8,12 +7,7 @@ import {
 	useState,
 } from "react";
 import { authApi } from "../../lib/api";
-import {
-	bearer,
-	clearToken,
-	getToken,
-	setToken,
-} from "../../lib/auth-token.js";
+import { clearToken, getToken, setToken } from "../../lib/auth-token.js";
 import type { User } from "../../lib/types";
 
 interface AuthValue {
@@ -32,17 +26,6 @@ export const useAuth = (): AuthValue => {
 	return ctx;
 };
 
-// Transitional: components not yet migrated to lib/api's client still use the
-// global axios default header. Keep setting it here until the Phase 2 finalize
-// step removes the last global-axios call site.
-const setLegacyHeader = (token: string | null) => {
-	if (token) {
-		axios.defaults.headers.common.Authorization = bearer(token) ?? "";
-	} else {
-		delete axios.defaults.headers.common.Authorization;
-	}
-};
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [user, setUser] = useState<User | null>(null);
 	const [token, setTokenState] = useState<string | null>(getToken());
@@ -52,7 +35,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		setUser(null);
 		setTokenState(null);
 		clearToken();
-		setLegacyHeader(null);
 	}, []);
 
 	const fetchProfile = useCallback(async () => {
@@ -68,7 +50,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 	useEffect(() => {
 		if (token) {
-			setLegacyHeader(token);
 			fetchProfile();
 		} else {
 			setLoading(false);
@@ -81,7 +62,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 			password,
 		);
 		setToken(accessToken);
-		setLegacyHeader(accessToken);
 		setTokenState(accessToken);
 		setUser(loggedIn);
 		return loggedIn;
