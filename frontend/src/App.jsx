@@ -39,6 +39,9 @@ import {
 } from "react-router-dom";
 import { ThemeProvider, useTheme } from "./app/ThemeContext";
 import EnrollmentManager from "./components/Admin/EnrollmentManager";
+import { ConfirmModal } from "./components/ui/ConfirmModal";
+import { Skeleton } from "./components/ui/Skeleton";
+import { StatCard } from "./components/ui/StatCard";
 import { ToastProvider, useToast } from "./components/ui/Toast";
 import { AuthProvider, useAuth } from "./features/auth/AuthContext";
 import { ProtectedRoute } from "./features/auth/ProtectedRoute";
@@ -48,69 +51,6 @@ const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const API_URL = `${API_BASE_URL}/api`;
 axios.defaults.baseURL = API_URL;
-// ==============================
-// CONFIRM MODAL
-// ==============================
-const ConfirmModal = ({
-	isOpen,
-	title,
-	message,
-	onConfirm,
-	onCancel,
-	danger = true,
-}) => {
-	if (!isOpen) return null;
-	return (
-		<div
-			className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm flex items-center justify-center z-[150] p-4"
-			dir="rtl"
-		>
-			<div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-2xl animate-in zoom-in-95 duration-200">
-				<div
-					className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 ${danger ? "bg-red-100" : "bg-blue-100"}`}
-				>
-					<AlertCircle
-						className={danger ? "text-red-600" : "text-blue-600"}
-						size={28}
-					/>
-				</div>
-				<h3 className="text-xl font-black text-gray-900 text-center mb-2">
-					{title}
-				</h3>
-				<p className="text-gray-500 text-center text-sm font-medium mb-8 leading-relaxed">
-					{message}
-				</p>
-				<div className="flex gap-3">
-					<button
-						onClick={onCancel}
-						className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-black hover:bg-gray-200 transition-colors"
-					>
-						إلغاء
-					</button>
-					<button
-						onClick={onConfirm}
-						className={`flex-1 py-3 rounded-xl font-black text-white transition-colors ${danger ? "bg-red-500 hover:bg-red-600" : "bg-blue-700 hover:bg-blue-700"}`}
-					>
-						تأكيد
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-};
-
-// ==============================
-// SKELETON LOADER
-// ==============================
-const Skeleton = ({ className }) => (
-	<div
-		className={`animate-pulse bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:400%_100%] rounded-xl ${className}`}
-		style={{
-			backgroundSize: "400% 100%",
-			animation: "pulse 1.5s ease-in-out infinite",
-		}}
-	/>
-);
 // ==============================
 // DASHBOARD LAYOUT
 // ==============================
@@ -227,47 +167,6 @@ const DashboardLayout = ({ children, title, subtitle }) => {
 			<main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 				{children}
 			</main>
-		</div>
-	);
-};
-
-// ==============================
-// STAT CARD
-// ==============================
-const StatCard = ({ icon: Icon, label, value, color = "blue", trend }) => {
-	const colors = {
-		blue: "from-blue-600 to-blue-500 shadow-blue-200/60 dark:shadow-blue-900/50",
-		emerald:
-			"from-teal-400 to-emerald-500 shadow-teal-200/60 dark:shadow-teal-900/50",
-		amber:
-			"from-amber-400 to-orange-400 shadow-amber-200/60 dark:shadow-amber-900/50",
-		purple:
-			"from-cyan-400 to-cyan-600 shadow-cyan-200/60 dark:shadow-cyan-900/50",
-		rose: "from-rose-400 to-pink-500 shadow-rose-200/60 dark:shadow-rose-900/50",
-	};
-	return (
-		<div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/60 dark:border-slate-700/60 shadow-sm hover:shadow-lg dark:hover:shadow-slate-800/50 transition-all duration-300 group">
-			<div className="flex items-start justify-between mb-5">
-				<div
-					className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${colors[color]} shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}
-				>
-					<Icon className="text-white" size={22} />
-				</div>
-				{trend && (
-					<span
-						className={`text-xs font-black px-2.5 py-1 rounded-full ${trend > 0 ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400" : "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"}`}
-					>
-						{trend > 0 ? "+" : ""}
-						{trend}%
-					</span>
-				)}
-			</div>
-			<p className="text-3xl font-black text-slate-900 dark:text-white leading-none mb-2">
-				{value}
-			</p>
-			<p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-				{label}
-			</p>
 		</div>
 	);
 };
