@@ -9,7 +9,10 @@ import {
 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { DashboardLayout } from "../../components/layout/DashboardLayout";
+import { Button } from "../../components/ui/Button";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
+import { Field } from "../../components/ui/Field";
+import { Modal } from "../../components/ui/Modal";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/Toast";
 import { attendanceApi, coursesApi } from "../../lib/api";
@@ -294,122 +297,80 @@ export const ProfessorDashboard = () => {
 			)}
 
 			{/* Add Course Modal */}
-			{showAddModal && (
-				<div
-					className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200"
-					dir="rtl"
-				>
-					<div className="bg-white dark:bg-slate-900 rounded-3xl p-8 w-full max-w-lg shadow-2xl border border-slate-200/60 dark:border-slate-700/60 animate-in zoom-in-95 duration-200">
-						<div className="flex justify-between items-center mb-7">
-							<h3 className="text-xl font-black text-slate-900 dark:text-white">
-								إضافة مادة دراسية
-							</h3>
-							<button
-								type="button"
-								onClick={() => setShowAddModal(false)}
-								className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 transition-colors"
+			<Modal
+				open={showAddModal}
+				onClose={() => setShowAddModal(false)}
+				title="إضافة مادة دراسية"
+				maxWidth="max-w-lg"
+			>
+				<form onSubmit={handleAddCourse} className="space-y-5">
+					<Field
+						id="course-name"
+						label="اسم المادة"
+						type="text"
+						placeholder="مثال: مقدمة في علوم الحاسب"
+						onChange={(e) =>
+							setNewCourse({ ...newCourse, courseName: e.target.value })
+						}
+						required
+					/>
+					<Field
+						id="course-code"
+						label="كود المادة"
+						type="text"
+						placeholder="CS101"
+						className="font-mono"
+						onChange={(e) =>
+							setNewCourse({ ...newCourse, courseCode: e.target.value })
+						}
+						required
+					/>
+					<div className="grid grid-cols-2 gap-4">
+						<div className="space-y-1.5">
+							<label
+								htmlFor="course-semester"
+								className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
 							>
-								<X size={18} />
-							</button>
+								الفصل الدراسي
+							</label>
+							<select
+								id="course-semester"
+								className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-black text-blue-700 dark:text-blue-400 text-sm"
+								onChange={(e) =>
+									setNewCourse({ ...newCourse, semester: e.target.value })
+								}
+							>
+								<option value="Fall">الخريف (Fall)</option>
+								<option value="Spring">الربيع (Spring)</option>
+								<option value="Summer">الصيف (Summer)</option>
+							</select>
 						</div>
-						<form onSubmit={handleAddCourse} className="space-y-5">
-							<div className="space-y-1.5">
-								<label
-									htmlFor="course-name"
-									className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-								>
-									اسم المادة
-								</label>
-								<input
-									id="course-name"
-									type="text"
-									placeholder="مثال: مقدمة في علوم الحاسب"
-									className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-blue-400 font-bold text-sm text-slate-800 dark:text-slate-200"
-									onChange={(e) =>
-										setNewCourse({ ...newCourse, courseName: e.target.value })
-									}
-									required
-								/>
-							</div>
-							<div className="space-y-1.5">
-								<label
-									htmlFor="course-code"
-									className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-								>
-									كود المادة
-								</label>
-								<input
-									id="course-code"
-									type="text"
-									placeholder="CS101"
-									className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-blue-400 font-bold text-sm font-mono text-slate-800 dark:text-slate-200"
-									onChange={(e) =>
-										setNewCourse({ ...newCourse, courseCode: e.target.value })
-									}
-									required
-								/>
-							</div>
-							<div className="grid grid-cols-2 gap-4">
-								<div className="space-y-1.5">
-									<label
-										htmlFor="course-semester"
-										className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-									>
-										الفصل الدراسي
-									</label>
-									<select
-										id="course-semester"
-										className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-black text-blue-700 dark:text-blue-400 text-sm"
-										onChange={(e) =>
-											setNewCourse({ ...newCourse, semester: e.target.value })
-										}
-									>
-										<option value="Fall">الخريف (Fall)</option>
-										<option value="Spring">الربيع (Spring)</option>
-										<option value="Summer">الصيف (Summer)</option>
-									</select>
-								</div>
-								<div className="space-y-1.5">
-									<label
-										htmlFor="course-year"
-										className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-									>
-										السنة الأكاديمية
-									</label>
-									<input
-										id="course-year"
-										type="text"
-										defaultValue="2025/2026"
-										className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-bold text-center text-sm text-slate-800 dark:text-slate-200"
-										onChange={(e) =>
-											setNewCourse({
-												...newCourse,
-												academicYear: e.target.value,
-											})
-										}
-										required
-									/>
-								</div>
-							</div>
-							<div className="flex gap-3 pt-2">
-								<button
-									type="submit"
-									className="flex-[2] bg-blue-700 hover:bg-blue-800 text-white py-4 rounded-xl font-black text-sm shadow-lg shadow-blue-200/50 transition-all active:scale-95"
-								>
-									حفظ المادة
-								</button>
-								<button
-									type="button"
-									onClick={() => setShowAddModal(false)}
-									className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 py-4 rounded-xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-								>
-									إلغاء
-								</button>
-							</div>
-						</form>
+						<Field
+							id="course-year"
+							label="السنة الأكاديمية"
+							type="text"
+							defaultValue="2025/2026"
+							className="text-center"
+							onChange={(e) =>
+								setNewCourse({ ...newCourse, academicYear: e.target.value })
+							}
+							required
+						/>
 					</div>
-				</div>
-			)}
+					<div className="flex gap-3 pt-2">
+						<Button type="submit" className="flex-[2] py-4">
+							حفظ المادة
+						</Button>
+						<Button
+							variant="secondary"
+							onClick={() => setShowAddModal(false)}
+							className="flex-1 py-4"
+						>
+							إلغاء
+						</Button>
+					</div>
+				</form>
+			</Modal>
 
 			{/* Confirm Delete Modal */}
 			<ConfirmModal

@@ -7,10 +7,12 @@ import {
 	Sun,
 	UserPlus,
 	Users,
-	X,
 } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useTheme } from "../../app/ThemeContext";
+import { Button } from "../../components/ui/Button";
+import { Field } from "../../components/ui/Field";
+import { Modal } from "../../components/ui/Modal";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatCard } from "../../components/ui/StatCard";
 import { useToast } from "../../components/ui/Toast";
@@ -348,109 +350,76 @@ export const AdminDashboard = () => {
 			</main>
 
 			{/* Create User Modal */}
-			{showModal && (
-				<div
-					className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-in fade-in duration-200"
-					dir="rtl"
-				>
-					<div className="bg-white dark:bg-slate-900 rounded-3xl p-8 w-full max-w-md shadow-2xl border border-slate-200/60 dark:border-slate-700/60 relative overflow-hidden animate-in zoom-in-95 duration-200">
-						<div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-800 to-blue-600 rounded-t-3xl"></div>
-						<div className="flex justify-between items-center mb-7">
-							<h3 className="text-xl font-black text-slate-900 dark:text-white">
-								إضافة مستخدم جديد
-							</h3>
-							<button
-								type="button"
-								onClick={() => setShowModal(false)}
-								className="w-9 h-9 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center text-slate-400 transition-colors"
+			<Modal
+				open={showModal}
+				onClose={() => setShowModal(false)}
+				title="إضافة مستخدم جديد"
+				accent
+			>
+				<form onSubmit={handleCreateUser} className="space-y-4">
+					{textFields.map(({ label, field, type, placeholder }) => (
+						<Field
+							key={field}
+							id={field}
+							label={label}
+							type={type}
+							placeholder={placeholder}
+							value={formData[field]}
+							onChange={(e) =>
+								setFormData({ ...formData, [field]: e.target.value })
+							}
+							required
+						/>
+					))}
+					<div className="grid grid-cols-2 gap-3">
+						<div className="space-y-1.5">
+							<label
+								htmlFor="new-user-role"
+								className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
 							>
-								<X size={18} />
-							</button>
+								الصلاحية
+							</label>
+							<select
+								id="new-user-role"
+								className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-blue-400 font-black text-blue-700 dark:text-blue-400 text-sm"
+								value={formData.role}
+								onChange={(e) =>
+									setFormData({ ...formData, role: e.target.value as Role })
+								}
+							>
+								<option value="student">طالب</option>
+								<option value="professor">دكتور</option>
+								<option value="admin">مسؤول</option>
+							</select>
 						</div>
-						<form onSubmit={handleCreateUser} className="space-y-4">
-							{textFields.map(({ label, field, type, placeholder }) => (
-								<div key={field} className="space-y-1.5">
-									<label
-										htmlFor={field}
-										className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-									>
-										{label}
-									</label>
-									<input
-										id={field}
-										type={type}
-										placeholder={placeholder}
-										className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-blue-400 dark:ring-blue-600 transition-all font-bold text-sm text-slate-800 dark:text-slate-200"
-										value={formData[field]}
-										onChange={(e) =>
-											setFormData({ ...formData, [field]: e.target.value })
-										}
-										required
-									/>
-								</div>
-							))}
-							<div className="grid grid-cols-2 gap-3">
-								<div className="space-y-1.5">
-									<label
-										htmlFor="new-user-role"
-										className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-									>
-										الصلاحية
-									</label>
-									<select
-										id="new-user-role"
-										className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-blue-400 font-black text-blue-700 dark:text-blue-400 text-sm"
-										value={formData.role}
-										onChange={(e) =>
-											setFormData({ ...formData, role: e.target.value as Role })
-										}
-									>
-										<option value="student">طالب</option>
-										<option value="professor">دكتور</option>
-										<option value="admin">مسؤول</option>
-									</select>
-								</div>
-								{formData.role === "student" && (
-									<div className="space-y-1.5 animate-in zoom-in duration-200">
-										<label
-											htmlFor="new-user-student-id"
-											className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider"
-										>
-											الرقم الجامعي
-										</label>
-										<input
-											id="new-user-student-id"
-											type="text"
-											placeholder="ST-000"
-											className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 ring-blue-400 font-bold text-sm text-slate-800 dark:text-slate-200"
-											value={formData.student_id}
-											onChange={(e) =>
-												setFormData({ ...formData, student_id: e.target.value })
-											}
-											required
-										/>
-									</div>
-								)}
-							</div>
-							<div className="flex gap-3 pt-2">
-								<button
-									type="submit"
-									className="flex-[2] bg-blue-700 hover:bg-blue-800 text-white py-4 rounded-xl font-black text-sm shadow-lg shadow-blue-200/50 transition-all active:scale-95"
-								>
-									إنشاء الحساب
-								</button>
-								<button
-									type="button"
-									onClick={() => setShowModal(false)}
-									className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 py-4 rounded-xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-								>
-									إلغاء
-								</button>
-							</div>
-						</form>
+						{formData.role === "student" && (
+							<Field
+								id="new-user-student-id"
+								label="الرقم الجامعي"
+								type="text"
+								placeholder="ST-000"
+								value={formData.student_id}
+								onChange={(e) =>
+									setFormData({ ...formData, student_id: e.target.value })
+								}
+								required
+							/>
+						)}
 					</div>
-				</div>
-			)}
+					<div className="flex gap-3 pt-2">
+						<Button type="submit" className="flex-[2] py-4">
+							إنشاء الحساب
+						</Button>
+						<Button
+							variant="secondary"
+							onClick={() => setShowModal(false)}
+							className="flex-1 py-4"
+						>
+							إلغاء
+						</Button>
+					</div>
+				</form>
+			</Modal>
 		</div>
 	);
 };
