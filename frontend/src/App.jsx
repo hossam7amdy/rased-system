@@ -29,14 +29,7 @@ import {
 	Zap,
 } from "lucide-react";
 import QRCode from "qrcode";
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	BrowserRouter,
 	Navigate,
@@ -44,89 +37,16 @@ import {
 	Routes,
 	useNavigate,
 } from "react-router-dom";
+import { ThemeProvider, useTheme } from "./app/ThemeContext";
 import EnrollmentManager from "./components/Admin/EnrollmentManager";
+import { ToastProvider, useToast } from "./components/ui/Toast";
+import { AuthProvider, useAuth } from "./features/auth/AuthContext";
 
 // --- Configuration ---
 const API_BASE_URL =
 	import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 const API_URL = `${API_BASE_URL}/api`;
 axios.defaults.baseURL = API_URL;
-
-// ==============================
-// TOAST SYSTEM
-// ==============================
-const ToastContext = createContext(null);
-
-const ToastProvider = ({ children }) => {
-	const [toasts, setToasts] = useState([]);
-
-	const addToast = useCallback((message, type = "info", duration = 4000) => {
-		const id = Date.now() + Math.random();
-		setToasts((prev) => [...prev, { id, message, type }]);
-		setTimeout(
-			() => setToasts((prev) => prev.filter((t) => t.id !== id)),
-			duration,
-		);
-	}, []);
-
-	const removeToast = (id) =>
-		setToasts((prev) => prev.filter((t) => t.id !== id));
-
-	return (
-		<ToastContext.Provider value={addToast}>
-			{children}
-			<div
-				className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-3 w-full max-w-sm px-4"
-				dir="rtl"
-			>
-				{toasts.map((toast) => (
-					<div
-						key={toast.id}
-						className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border backdrop-blur-md text-sm font-bold transition-all animate-in slide-in-from-top-4 duration-300 ${
-							toast.type === "success"
-								? "bg-emerald-50/95 border-emerald-200 text-emerald-800"
-								: toast.type === "error"
-									? "bg-red-50/95 border-red-200 text-red-800"
-									: toast.type === "warning"
-										? "bg-amber-50/95 border-amber-200 text-amber-800"
-										: "bg-blue-50/95 border-blue-200 text-blue-800"
-						}`}
-					>
-						<div
-							className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-								toast.type === "success"
-									? "bg-emerald-500"
-									: toast.type === "error"
-										? "bg-red-500"
-										: toast.type === "warning"
-											? "bg-amber-500"
-											: "bg-blue-500"
-							} text-white`}
-						>
-							{toast.type === "success" ? (
-								<CheckCircle size={14} />
-							) : toast.type === "error" ? (
-								<AlertCircle size={14} />
-							) : (
-								<Bell size={14} />
-							)}
-						</div>
-						<span className="flex-1">{toast.message}</span>
-						<button
-							onClick={() => removeToast(toast.id)}
-							className="opacity-50 hover:opacity-100 transition-opacity"
-						>
-							<X size={16} />
-						</button>
-					</div>
-				))}
-			</div>
-		</ToastContext.Provider>
-	);
-};
-
-const useToast = () => useContext(ToastContext);
-
 // ==============================
 // CONFIRM MODAL
 // ==============================
@@ -190,91 +110,6 @@ const Skeleton = ({ className }) => (
 		}}
 	/>
 );
-
-// ==============================
-// AUTH CONTEXT
-// ==============================
-const AuthContext = createContext(null);
-const useAuth = () => useContext(AuthContext);
-
-const AuthProvider = ({ children }) => {
-	const [user, setUser] = useState(null);
-	const [token, setToken] = useState(localStorage.getItem("token"));
-	const [loading, setLoading] = useState(true);
-
-	const logout = useCallback(() => {
-		setUser(null);
-		setToken(null);
-		localStorage.removeItem("token");
-		delete axios.defaults.headers.common.Authorization;
-	}, []);
-
-	const fetchProfile = useCallback(async () => {
-		try {
-			const response = await axios.get("/auth/profile");
-			setUser(response.data.data.user);
-		} catch {
-			logout();
-		} finally {
-			setLoading(false);
-		}
-	}, [logout]);
-
-	useEffect(() => {
-		if (token) {
-			axios.defaults.headers.common.Authorization = `Bearer ${token}`;
-			fetchProfile();
-		} else {
-			setLoading(false);
-		}
-	}, [token, fetchProfile]);
-
-	const login = async (email, password) => {
-		const response = await axios.post("/auth/login", { email, password });
-		const { accessToken, user } = response.data.data;
-		// ✅ FIX: Set the Authorization header immediately here, before any
-		// state update triggers a re-render. Previously, setToken() scheduled
-		// a useEffect that set the header, but child components (e.g.
-		// ProfessorDashboard) mounted and fired their API calls in the same
-		// render cycle — before the useEffect had a chance to run — so every
-		// request on first login arrived at the server with no token.
-		axios.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-		localStorage.setItem("token", accessToken);
-		setToken(accessToken);
-		setUser(user);
-		return user;
-	};
-
-	return (
-		<AuthContext.Provider value={{ user, token, login, logout, loading }}>
-			{children}
-		</AuthContext.Provider>
-	);
-};
-
-// ==============================
-// DARK MODE CONTEXT
-// ==============================
-const ThemeContext = createContext({ dark: false, toggle: () => {} });
-const useTheme = () => useContext(ThemeContext);
-
-const ThemeProvider = ({ children }) => {
-	const [dark, setDark] = useState(
-		() => localStorage.getItem("theme") === "dark",
-	);
-
-	useEffect(() => {
-		document.documentElement.classList.toggle("dark", dark);
-		localStorage.setItem("theme", dark ? "dark" : "light");
-	}, [dark]);
-
-	return (
-		<ThemeContext.Provider value={{ dark, toggle: () => setDark((d) => !d) }}>
-			{children}
-		</ThemeContext.Provider>
-	);
-};
-
 // ==============================
 // PROTECTED ROUTE
 // ==============================

@@ -17,15 +17,27 @@ vi.mock("axios", () => {
 			response: { status: 404, data: { message: `no mock for ${url}` } },
 		});
 	};
+	const methods = () => ({
+		get: vi.fn((url: string) => resolve("get")(url)),
+		post: vi.fn((url: string) => resolve("post")(url)),
+		patch: vi.fn(() => Promise.resolve({ data: { success: true, data: {} } })),
+		delete: vi.fn(() => Promise.resolve({ data: { success: true, data: {} } })),
+	});
+	// lib/api.ts uses axios.create(); legacy (un-migrated) components use the
+	// default instance. Both share the same route table.
 	const instance = {
 		defaults: {
 			baseURL: "",
 			headers: { common: {} as Record<string, string> },
 		},
-		get: vi.fn((url: string) => resolve("get")(url)),
-		post: vi.fn((url: string) => resolve("post")(url)),
-		patch: vi.fn(() => Promise.resolve({ data: { success: true, data: {} } })),
-		delete: vi.fn(() => Promise.resolve({ data: { success: true, data: {} } })),
+		...methods(),
+		create: () => ({
+			interceptors: {
+				request: { use: vi.fn() },
+				response: { use: vi.fn() },
+			},
+			...methods(),
+		}),
 	};
 	return { default: instance };
 });
@@ -84,8 +96,7 @@ describe("App smoke — routing & auth guard", () => {
 		).toBeInTheDocument();
 	});
 
-	test("login form submits credentials to the auth endpoint", async () => {
-		const axios = (await import("axios")).default;
+	test("logging in routes the user to their role dashboard", async () => {
 		routes.post.set("/auth/login", {
 			data: {
 				success: true,
@@ -98,6 +109,8 @@ describe("App smoke — routing & auth guard", () => {
 		routes.get.set("/courses/my-courses", {
 			data: { success: true, courses: [] },
 		});
+		// After login the token effect re-validates via /auth/profile.
+		routes.get.set("/auth/profile", profile("student"));
 
 		render(<App />);
 		const heading = await screen.findByRole("heading", {
@@ -112,11 +125,9 @@ describe("App smoke — routing & auth guard", () => {
 		await user.type(inputs[1], "pw");
 		await user.click(screen.getByRole("button", { name: /دخول إلى النظام/ }));
 
-		await waitFor(() => {
-			expect(axios.post).toHaveBeenCalledWith(
-				"/auth/login",
-				expect.objectContaining({ email: "a@b.com", password: "pw" }),
-			);
-		});
+		// Successful login navigates to /student (the student dashboard heading).
+		expect(
+			await screen.findByRole("heading", { name: "تسجيل الحضور" }),
+		).toBeInTheDocument();
 	});
 });
