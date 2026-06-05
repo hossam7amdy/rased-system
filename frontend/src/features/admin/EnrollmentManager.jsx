@@ -13,7 +13,6 @@
  *  - Skeleton loading, toast-style inline feedback, responsive layout
  */
 
-import axios from "axios";
 import {
 	AlertCircle,
 	BookOpen,
@@ -36,6 +35,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { adminApi } from "../../lib/api";
 
 // ─── tiny helpers ─────────────────────────────────────────────────────────────
 
@@ -281,8 +281,8 @@ const EnrollmentManager = () => {
 	const fetchStudents = useCallback(async () => {
 		setLoadingStudents(true);
 		try {
-			const res = await axios.get("/admin/students");
-			setStudents(res.data?.data?.students ?? []);
+			const { students } = await adminApi.students();
+			setStudents(students ?? []);
 		} catch (err) {
 			console.error("fetchStudents:", err);
 		} finally {
@@ -293,8 +293,8 @@ const EnrollmentManager = () => {
 	const fetchCourses = useCallback(async () => {
 		setLoadingCourses(true);
 		try {
-			const res = await axios.get("/admin/courses");
-			setCourses(res.data?.data?.courses ?? []);
+			const { courses } = await adminApi.courses();
+			setCourses(courses ?? []);
 		} catch (err) {
 			console.error("fetchCourses:", err);
 		} finally {
@@ -422,17 +422,17 @@ const EnrollmentManager = () => {
 		setEnrolling(true);
 		setEnrollResult(null);
 		try {
-			const res = await axios.post("/admin/enroll-bulk", {
-				studentIds: Array.from(selectedStudents),
-				courseIds: Array.from(selectedCourses),
-			});
-			setEnrollResult(res.data);
+			const result = await adminApi.enrollBulk(
+				Array.from(selectedStudents),
+				Array.from(selectedCourses),
+			);
+			setEnrollResult(result);
 			// clear selection on full success
-			if (res.data.errors === 0) clearAll();
+			if (result.errors === 0) clearAll();
 		} catch (err) {
 			setEnrollResult({
 				success: false,
-				message: err.response?.data?.message || "حدث خطأ أثناء عملية الربط.",
+				message: err?.message || "حدث خطأ أثناء عملية الربط.",
 			});
 		} finally {
 			setEnrolling(false);
@@ -540,17 +540,15 @@ const EnrollmentManager = () => {
 		setImportResult(null);
 		setImportError(null);
 		try {
-			const res = await axios.post("/admin/enroll-import", {
-				rows: importParsed.rows,
-			});
-			setImportResult(res.data);
+			const result = await adminApi.enrollImport(importParsed.rows);
+			setImportResult(result);
 			setShowImportDetails(false);
-			if (res.data.success) {
+			if (result.success) {
 				fetchStudents(); // refresh lists in case new data
 				fetchCourses();
 			}
 		} catch (err) {
-			setImportError(err.response?.data?.message || "حدث خطأ أثناء الاستيراد.");
+			setImportError(err?.message || "حدث خطأ أثناء الاستيراد.");
 		} finally {
 			setImportLoading(false);
 		}
