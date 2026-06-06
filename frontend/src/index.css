@@ -191,6 +191,9 @@ html:not(.dark) .bg-white.dark\:bg-slate-800.px-3 {
 }
 
 /* ── Table ── */
+tbody tr {
+	@apply transition-colors duration-100;
+}
 html:not(.dark) thead tr {
 	background: linear-gradient(90deg, #eef2ff, #f0f9ff);
 }
@@ -392,11 +395,6 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 .attendance-item {
 	@apply flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/40 rounded-2xl;
 	animation: slideInFromRight 0.3s ease-out both;
-}
-
-/* ── Misc ── */
-tbody tr {
-	@apply transition-colors duration-100;
 }
 
 :focus-visible {

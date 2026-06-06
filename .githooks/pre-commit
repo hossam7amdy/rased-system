@@ -1,0 +1,15 @@
+#!/bin/sh
+# Pre-commit gate for the frontend. Runs `yarn verify` (biome + tsc + vitest +
+# node:test) only when staged changes touch frontend/. Shared via .githooks/
+# (core.hooksPath set automatically by postinstall). CI in
+# .github/workflows/ci.yml is the authoritative gate.
+# Bypass once with:  git commit --no-verify
+
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep '^frontend/' || true)
+if [ -z "$staged" ]; then
+	exit 0
+fi
+
+echo "[pre-commit] frontend changes staged -> running yarn verify"
+cd "$(git rev-parse --show-toplevel)/frontend" || exit 1
+corepack yarn verify
