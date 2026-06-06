@@ -21,7 +21,6 @@ export const Button = ({
 	type = "button",
 	...rest
 }: ButtonProps) => (
-	// biome-ignore lint/a11y/useButtonType: type is set from the prop (default "button")
 	<button
 		type={type}
 		className={`rounded-xl font-black text-sm transition-all active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${variants[variant]} ${className}`}

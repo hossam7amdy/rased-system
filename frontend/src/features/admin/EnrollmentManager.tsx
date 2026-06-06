@@ -829,6 +829,7 @@ const EnrollmentManager = () => {
 							<div className="space-y-1.5 min-h-[280px]">
 								{loadingStudents ? (
 									Array.from({ length: 5 }).map((_, i) => (
+										// biome-ignore lint/suspicious/noArrayIndexKey: static-length skeleton, never reorders
 										<Skeleton key={i} className="h-14 w-full" />
 									))
 								) : pagedStudents.length === 0 ? (
@@ -952,6 +953,7 @@ const EnrollmentManager = () => {
 							<div className="space-y-1.5 min-h-[280px]">
 								{loadingCourses ? (
 									Array.from({ length: 5 }).map((_, i) => (
+										// biome-ignore lint/suspicious/noArrayIndexKey: static-length skeleton, never reorders
 										<Skeleton key={i} className="h-14 w-full" />
 									))
 								) : pagedCourses.length === 0 ? (
@@ -1128,9 +1130,9 @@ const EnrollmentManager = () => {
 											color: "text-amber-600 dark:text-amber-400",
 											bg: "bg-amber-50 dark:bg-amber-900/20",
 										},
-									].map((s, i) => (
+									].map((s) => (
 										<div
-											key={i}
+											key={s.label}
 											className={cls("rounded-xl p-3 text-center", s.bg)}
 										>
 											<p className={cls("text-xl font-black", s.color)}>
@@ -1227,9 +1229,9 @@ const EnrollmentManager = () => {
 										color: "text-red-600 dark:text-red-400",
 										bg: "bg-red-50 dark:bg-red-900/20",
 									},
-								].map((s, i) => (
+								].map((s) => (
 									<div
-										key={i}
+										key={s.label}
 										className={cls("rounded-xl p-3 text-center", s.bg)}
 									>
 										<p className={cls("text-xl font-black", s.color)}>
@@ -1280,8 +1282,8 @@ const EnrollmentManager = () => {
 													</tr>
 												</thead>
 												<tbody>
-													{importResult.details?.map((row, i) => (
-														<ImportResultRow key={i} row={row} />
+													{importResult.details?.map((row) => (
+														<ImportResultRow key={row.rowNum} row={row} />
 													))}
 												</tbody>
 											</table>
