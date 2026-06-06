@@ -562,7 +562,15 @@ const EnrollmentManager = () => {
 		try {
 			const buffer = await file.arrayBuffer();
 			const wb = XLSX.read(buffer, { type: "array" });
+			if (!wb.SheetNames?.length) {
+				setImportError("ملف Excel لا يحتوي على أي صفحات.");
+				return;
+			}
 			const ws = wb.Sheets[wb.SheetNames[0]];
+			if (!ws) {
+				setImportError("فشل في قراءة الصفحة الأولى من الملف.");
+				return;
+			}
 			const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
 				defval: "",
 			});

@@ -16,6 +16,7 @@ import { Modal } from "../../components/ui/Modal";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useToast } from "../../components/ui/Toast";
 import { attendanceApi, coursesApi } from "../../lib/api";
+import { localISODate } from "../../lib/date";
 import { ApiError } from "../../lib/response.js";
 import type { Course } from "../../lib/types";
 import { AttendanceManagementPage } from "./AttendanceManagementPage";
@@ -94,12 +95,12 @@ export const ProfessorDashboard = () => {
 			const { session } = await attendanceApi.startSession({
 				courseId: course.id,
 				sessionName: `محاضرة ${new Date().toLocaleDateString("ar-EG", { day: "numeric", month: "long" })}`,
-				sessionDate: new Date().toISOString().split("T")[0],
+				sessionDate: localISODate(),
 			});
 			setActiveSessionId(session?.id ?? null);
 			setActiveSession(course);
 		} catch {
-			setActiveSession(course);
+			addToast("فشل في بدء الجلسة على الخادم", "error");
 		}
 	};
 

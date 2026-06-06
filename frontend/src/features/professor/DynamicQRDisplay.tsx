@@ -85,7 +85,7 @@ export const DynamicQRDisplay = ({
 
 	useEffect(() => {
 		const interval = setInterval(() => {
-			setTimer((prev) => (prev <= 1 ? 8 : prev - 1));
+			setTimer((prev) => (prev > 0 ? prev - 1 : 0));
 		}, 1000);
 		return () => clearInterval(interval);
 	}, []);

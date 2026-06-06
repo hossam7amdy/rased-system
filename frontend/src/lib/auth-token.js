@@ -14,9 +14,13 @@ export function getToken() {
 	}
 }
 
-/** @param {string} token */
+/** @param {string | null | undefined} token */
 export function setToken(token) {
-	localStorage.setItem(TOKEN_KEY, token);
+	if (token) {
+		localStorage.setItem(TOKEN_KEY, token);
+	} else {
+		localStorage.removeItem(TOKEN_KEY);
+	}
 }
 
 export function clearToken() {
