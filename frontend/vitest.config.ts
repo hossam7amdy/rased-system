@@ -1,10 +1,9 @@
-import react from "@vitejs/plugin-react";
+import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vitest/config";
 
-// Separate from vite.config.js on purpose: the Cloudflare plugin is for
-// build/deploy and is not needed (and can interfere) in the jsdom test env.
 export default defineConfig({
 	plugins: [react()],
+	oxc: false,
 	test: {
 		environment: "jsdom",
 		globals: true,
