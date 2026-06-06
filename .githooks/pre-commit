@@ -1,7 +1,8 @@
 #!/bin/sh
 # Pre-commit gate for the frontend. Runs `yarn verify` (biome + tsc + vitest +
-# node:test) only when staged changes touch frontend/. Local-only (not shared
-# on clone); CI in .github/workflows/ci.yml is the authoritative gate.
+# node:test) only when staged changes touch frontend/. Shared via .githooks/
+# (core.hooksPath set automatically by postinstall). CI in
+# .github/workflows/ci.yml is the authoritative gate.
 # Bypass once with:  git commit --no-verify
 
 staged=$(git diff --cached --name-only --diff-filter=ACM | grep '^frontend/' || true)
