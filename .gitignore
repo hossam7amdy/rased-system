@@ -59,3 +59,8 @@ docs
 
 # Wrangler / Cloudflare
 .wrangler/
+
+# Playwright
+frontend/e2e/.auth/
+frontend/playwright-report/
+frontend/test-results/
