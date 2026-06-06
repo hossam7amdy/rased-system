@@ -53,7 +53,7 @@ test.describe("Student dashboard", () => {
 		const loginRes = await fetch(`${API_BASE}/auth/login`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(CREDS.professor),
+			body: JSON.stringify({ email: CREDS.professor.email, password: CREDS.professor.password }),
 		});
 		if (!loginRes.ok) { test.skip(true, "professor login failed"); return; }
 		const { data: loginData } = await loginRes.json();

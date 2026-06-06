@@ -21,18 +21,21 @@ async function saveAuthState(
 	outFile: string,
 ) {
 	const browser = await chromium.launch();
-	const context = await browser.newContext();
-	const page = await context.newPage();
+	try {
+		const context = await browser.newContext();
+		const page = await context.newPage();
 
-	await page.goto(`${FRONTEND}/login`);
-	await page.fill("#login-email", email);
-	await page.fill("#login-password", password);
-	await page.click('button[type="submit"]');
-	// Verify redirect lands on the expected role dashboard, not an error page
-	await page.waitForURL(`**${expectedPath}`, { timeout: 10_000 });
+		await page.goto(`${FRONTEND}/login`);
+		await page.fill("#login-email", email);
+		await page.fill("#login-password", password);
+		await page.click('button[type="submit"]');
+		// Verify redirect lands on the expected role dashboard, not an error page
+		await page.waitForURL(`**${expectedPath}`, { timeout: 10_000 });
 
-	await context.storageState({ path: outFile });
-	await browser.close();
+		await context.storageState({ path: outFile });
+	} finally {
+		await browser.close();
+	}
 }
 
 export default async function globalSetup(_config: FullConfig) {
