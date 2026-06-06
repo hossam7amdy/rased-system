@@ -192,6 +192,7 @@ const SearchInput = ({
 		/>
 		{value && (
 			<button
+				type="button"
 				onClick={() => onChange("")}
 				className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors"
 			>
@@ -216,6 +217,7 @@ const SelectableRow = ({
 	tag?: ReactNode;
 }) => (
 	<button
+		type="button"
 		onClick={onToggle}
 		className={cls(
 			"w-full flex items-center gap-3 p-3 rounded-xl transition-all text-right border",
@@ -288,6 +290,7 @@ const Alert = ({
 			<div className="flex-1">{children}</div>
 			{onDismiss && (
 				<button
+					type="button"
 					onClick={onDismiss}
 					className="flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
 				>
@@ -701,6 +704,7 @@ const EnrollmentManager = () => {
 		return (
 			<div className="flex items-center justify-between mt-3 px-1">
 				<button
+					type="button"
 					onClick={() => setPage((p) => Math.max(1, p - 1))}
 					disabled={page === 1}
 					className="text-[10px] font-black text-slate-400 dark:text-slate-500 disabled:opacity-30 hover:text-slate-700 dark:hover:text-slate-300 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -711,6 +715,7 @@ const EnrollmentManager = () => {
 					{page} / {totalPages}
 				</span>
 				<button
+					type="button"
 					onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
 					disabled={page === totalPages}
 					className="text-[10px] font-black text-slate-400 dark:text-slate-500 disabled:opacity-30 hover:text-slate-700 dark:hover:text-slate-300 transition-colors px-2 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -735,6 +740,7 @@ const EnrollmentManager = () => {
 					},
 				].map((t) => (
 					<button
+						type="button"
 						key={t.key}
 						onClick={() => setActiveTab(t.key)}
 						className={cls(
@@ -800,6 +806,7 @@ const EnrollmentManager = () => {
 							{/* Select all on page */}
 							{pagedStudents.length > 0 && (
 								<button
+									type="button"
 									onClick={toggleAllStudents}
 									className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors mb-2 px-1"
 								>
@@ -851,6 +858,7 @@ const EnrollmentManager = () => {
 						<div className="flex flex-col items-center justify-center gap-4 py-4 lg:pt-20">
 							{/* Link button */}
 							<button
+								type="button"
 								onClick={handleBulkEnroll}
 								disabled={
 									enrolling ||
@@ -889,6 +897,7 @@ const EnrollmentManager = () => {
 										)}
 									</p>
 									<button
+										type="button"
 										onClick={clearAll}
 										className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-600 dark:text-red-500 dark:hover:text-red-400 font-bold transition-colors mx-auto"
 									>
@@ -921,6 +930,7 @@ const EnrollmentManager = () => {
 
 							{pagedCourses.length > 0 && (
 								<button
+									type="button"
 									onClick={toggleAllCourses}
 									className="flex items-center gap-2 text-[10px] font-black text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors mb-2 px-1"
 								>
@@ -1002,6 +1012,7 @@ const EnrollmentManager = () => {
 								</div>
 							</div>
 							<button
+								type="button"
 								onClick={downloadTemplate}
 								className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 px-4 py-2.5 rounded-xl font-black text-xs transition-colors"
 							>
@@ -1134,6 +1145,7 @@ const EnrollmentManager = () => {
 
 								<div className="flex gap-3">
 									<button
+										type="button"
 										onClick={handleImportSubmit}
 										disabled={importLoading || importParsed.valid === 0}
 										className={cls(
@@ -1155,6 +1167,7 @@ const EnrollmentManager = () => {
 										)}
 									</button>
 									<button
+										type="button"
 										onClick={resetImport}
 										className="px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl font-black text-sm transition-colors"
 									>
