@@ -5,7 +5,8 @@
 	"description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
 	"scripts": {
 		"start": "node backend/server.js",
-		"check:fix": "biome check --write"
+		"check:fix": "biome check --write",
+		"postinstall": "git config core.hooksPath .githooks"
 	},
 	"repository": {
 		"type": "git",
