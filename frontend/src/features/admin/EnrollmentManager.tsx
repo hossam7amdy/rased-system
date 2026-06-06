@@ -24,6 +24,7 @@ import {
 	FileSpreadsheet,
 	Link,
 	Loader,
+	type LucideIcon,
 	RefreshCw,
 	Search,
 	Square,
@@ -33,15 +34,63 @@ import {
 	Users,
 	X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	type ChangeEvent,
+	type Dispatch,
+	type ReactNode,
+	type SetStateAction,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import * as XLSX from "xlsx";
 import { adminApi } from "../../lib/api";
+import type { Course, Student } from "../../lib/types";
+
+interface ImportRow {
+	[key: string]: unknown;
+	rowNum: number;
+	studentName: string;
+	studentId: string;
+	courseCode: string;
+	courseName: string;
+}
+
+interface ImportParsed {
+	total: number;
+	valid: number;
+	invalid: number;
+	rows: ImportRow[];
+}
+
+type DetailStatus = "enrolled" | "duplicate" | "error";
+
+interface ImportDetailRow {
+	rowNum: number;
+	studentName?: string;
+	studentId?: string;
+	courseCode?: string;
+	status: DetailStatus;
+	message?: string;
+}
+
+interface EnrollOutcome {
+	success: boolean;
+	message?: string;
+	enrolled?: number;
+	duplicates?: number;
+	errors?: number;
+	total?: number;
+	details?: ImportDetailRow[];
+}
 
 // ─── tiny helpers ─────────────────────────────────────────────────────────────
 
-const cls = (...args) => args.filter(Boolean).join(" ");
+const cls = (...args: unknown[]) => args.filter(Boolean).join(" ");
 
-const Skeleton = ({ className }) => (
+const Skeleton = ({ className }: { className?: string }) => (
 	<div
 		className={cls(
 			"animate-pulse rounded-xl bg-gradient-to-r from-slate-100 via-slate-200 to-slate-100 dark:from-slate-800 dark:via-slate-700 dark:to-slate-800",
@@ -50,8 +99,16 @@ const Skeleton = ({ className }) => (
 	/>
 );
 
-const Badge = ({ children, color = "blue" }) => {
-	const map = {
+type BadgeColor = "blue" | "green" | "amber" | "red" | "slate";
+
+const Badge = ({
+	children,
+	color = "blue",
+}: {
+	children: ReactNode;
+	color?: BadgeColor;
+}) => {
+	const map: Record<BadgeColor, string> = {
 		blue: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300",
 		green:
 			"bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300",
@@ -73,8 +130,20 @@ const Badge = ({ children, color = "blue" }) => {
 };
 
 // ─── Section header used in each panel ────────────────────────────────────────
-const PanelHeader = ({ icon: Icon, title, count, color = "blue" }) => {
-	const iconBg = {
+type PanelColor = "blue" | "amber" | "emerald";
+
+const PanelHeader = ({
+	icon: Icon,
+	title,
+	count,
+	color = "blue",
+}: {
+	icon: LucideIcon;
+	title: string;
+	count?: ReactNode;
+	color?: PanelColor;
+}) => {
+	const iconBg: Record<PanelColor, string> = {
 		blue: "bg-blue-700",
 		amber: "bg-amber-500",
 		emerald: "bg-emerald-500",
@@ -100,7 +169,15 @@ const PanelHeader = ({ icon: Icon, title, count, color = "blue" }) => {
 };
 
 // ─── Search input ──────────────────────────────────────────────────────────────
-const SearchInput = ({ value, onChange, placeholder }) => (
+const SearchInput = ({
+	value,
+	onChange,
+	placeholder,
+}: {
+	value: string;
+	onChange: (value: string) => void;
+	placeholder: string;
+}) => (
 	<div className="relative mb-3">
 		<Search
 			size={13}
@@ -125,7 +202,19 @@ const SearchInput = ({ value, onChange, placeholder }) => (
 );
 
 // ─── Selectable row ────────────────────────────────────────────────────────────
-const SelectableRow = ({ selected, onToggle, primary, secondary, tag }) => (
+const SelectableRow = ({
+	selected,
+	onToggle,
+	primary,
+	secondary,
+	tag,
+}: {
+	selected: boolean;
+	onToggle: () => void;
+	primary: ReactNode;
+	secondary?: ReactNode;
+	tag?: ReactNode;
+}) => (
 	<button
 		onClick={onToggle}
 		className={cls(
@@ -167,8 +256,18 @@ const SelectableRow = ({ selected, onToggle, primary, secondary, tag }) => (
 );
 
 // ─── Inline alert banner ───────────────────────────────────────────────────────
-const Alert = ({ type, children, onDismiss }) => {
-	const styles = {
+type AlertType = "success" | "error" | "warning" | "info";
+
+const Alert = ({
+	type,
+	children,
+	onDismiss,
+}: {
+	type: AlertType;
+	children: ReactNode;
+	onDismiss?: () => void;
+}) => {
+	const styles: Record<AlertType, string> = {
 		success:
 			"bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300",
 		error:
@@ -200,15 +299,19 @@ const Alert = ({ type, children, onDismiss }) => {
 };
 
 // ─── Import result row ─────────────────────────────────────────────────────────
-const ImportResultRow = ({ row }) => {
-	const statusStyle = {
+const ImportResultRow = ({ row }: { row: ImportDetailRow }) => {
+	const statusStyle: Record<DetailStatus, string> = {
 		enrolled:
 			"text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20",
 		duplicate:
 			"text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20",
 		error: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20",
 	};
-	const statusLabel = { enrolled: "مسجّل ✓", duplicate: "مكرر", error: "خطأ" };
+	const statusLabel: Record<DetailStatus, string> = {
+		enrolled: "مسجّل ✓",
+		duplicate: "مكرر",
+		error: "خطأ",
+	};
 	return (
 		<tr className="border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
 			<td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 font-mono">
@@ -245,14 +348,18 @@ const ImportResultRow = ({ row }) => {
 // ══════════════════════════════════════════════════════════════════════════════
 const EnrollmentManager = () => {
 	// ── data ────────────────────────────────────────────────────────────────────
-	const [students, setStudents] = useState([]);
-	const [courses, setCourses] = useState([]);
+	const [students, setStudents] = useState<Student[]>([]);
+	const [courses, setCourses] = useState<Course[]>([]);
 	const [loadingStudents, setLoadingStudents] = useState(true);
 	const [loadingCourses, setLoadingCourses] = useState(true);
 
 	// ── selection ────────────────────────────────────────────────────────────────
-	const [selectedStudents, setSelectedStudents] = useState(new Set());
-	const [selectedCourses, setSelectedCourses] = useState(new Set());
+	const [selectedStudents, setSelectedStudents] = useState<Set<number>>(
+		new Set(),
+	);
+	const [selectedCourses, setSelectedCourses] = useState<Set<number>>(
+		new Set(),
+	);
 
 	// ── search ───────────────────────────────────────────────────────────────────
 	const [studentSearch, setStudentSearch] = useState("");
@@ -265,17 +372,17 @@ const EnrollmentManager = () => {
 
 	// ── manual enroll ────────────────────────────────────────────────────────────
 	const [enrolling, setEnrolling] = useState(false);
-	const [enrollResult, setEnrollResult] = useState(null); // { success, enrolled, duplicates, errors }
+	const [enrollResult, setEnrollResult] = useState<EnrollOutcome | null>(null);
 
 	// ── excel import ─────────────────────────────────────────────────────────────
-	const [activeTab, setActiveTab] = useState("manual"); // 'manual' | 'excel'
-	const [importFile, setImportFile] = useState(null);
-	const [importParsed, setImportParsed] = useState(null); // parsed rows before sending
+	const [activeTab, setActiveTab] = useState<"manual" | "excel">("manual");
+	const [importFile, setImportFile] = useState<File | null>(null);
+	const [importParsed, setImportParsed] = useState<ImportParsed | null>(null);
 	const [importLoading, setImportLoading] = useState(false);
-	const [importResult, setImportResult] = useState(null); // server response
-	const [importError, setImportError] = useState(null);
+	const [importResult, setImportResult] = useState<EnrollOutcome | null>(null);
+	const [importError, setImportError] = useState<string | null>(null);
 	const [showImportDetails, setShowImportDetails] = useState(false);
-	const fileInputRef = useRef(null);
+	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 	// ── fetch ────────────────────────────────────────────────────────────────────
 	const fetchStudents = useCallback(async () => {
@@ -356,14 +463,14 @@ const EnrollmentManager = () => {
 	);
 
 	// ── selection helpers ────────────────────────────────────────────────────────
-	const toggleStudent = (id) =>
+	const toggleStudent = (id: number) =>
 		setSelectedStudents((prev) => {
 			const next = new Set(prev);
 			next.has(id) ? next.delete(id) : next.add(id);
 			return next;
 		});
 
-	const toggleCourse = (id) =>
+	const toggleCourse = (id: number) =>
 		setSelectedCourses((prev) => {
 			const next = new Set(prev);
 			next.has(id) ? next.delete(id) : next.add(id);
@@ -426,13 +533,14 @@ const EnrollmentManager = () => {
 				Array.from(selectedStudents),
 				Array.from(selectedCourses),
 			);
-			setEnrollResult(result);
+			setEnrollResult(result as EnrollOutcome);
 			// clear selection on full success
 			if (result.errors === 0) clearAll();
 		} catch (err) {
 			setEnrollResult({
 				success: false,
-				message: err?.message || "حدث خطأ أثناء عملية الربط.",
+				message:
+					err instanceof Error ? err.message : "حدث خطأ أثناء عملية الربط.",
 			});
 		} finally {
 			setEnrolling(false);
@@ -440,7 +548,7 @@ const EnrollmentManager = () => {
 	};
 
 	// ── excel import ─────────────────────────────────────────────────────────────
-	const handleFileChange = async (e) => {
+	const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		if (!file) return;
 		setImportFile(file);
@@ -452,7 +560,9 @@ const EnrollmentManager = () => {
 			const buffer = await file.arrayBuffer();
 			const wb = XLSX.read(buffer, { type: "array" });
 			const ws = wb.Sheets[wb.SheetNames[0]];
-			const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+			const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+				defval: "",
+			});
 
 			if (rows.length === 0) {
 				setImportError("الملف فارغ أو لا يحتوي على بيانات.");
@@ -462,7 +572,7 @@ const EnrollmentManager = () => {
 			// normalise column names (case-insensitive)
 			const norm = rows.map((row, idx) => {
 				const keys = Object.keys(row);
-				const get = (...candidates) => {
+				const get = (...candidates: string[]) => {
 					const k = keys.find((k) =>
 						candidates.some((c) => k.trim().toLowerCase() === c),
 					);
@@ -541,14 +651,16 @@ const EnrollmentManager = () => {
 		setImportError(null);
 		try {
 			const result = await adminApi.enrollImport(importParsed.rows);
-			setImportResult(result);
+			setImportResult(result as EnrollOutcome);
 			setShowImportDetails(false);
 			if (result.success) {
 				fetchStudents(); // refresh lists in case new data
 				fetchCourses();
 			}
 		} catch (err) {
-			setImportError(err?.message || "حدث خطأ أثناء الاستيراد.");
+			setImportError(
+				err instanceof Error ? err.message : "حدث خطأ أثناء الاستيراد.",
+			);
 		} finally {
 			setImportLoading(false);
 		}
@@ -576,7 +688,15 @@ const EnrollmentManager = () => {
 	};
 
 	// ── pagination control ───────────────────────────────────────────────────────
-	const Pagination = ({ page, setPage, totalPages }) => {
+	const Pagination = ({
+		page,
+		setPage,
+		totalPages,
+	}: {
+		page: number;
+		setPage: Dispatch<SetStateAction<number>>;
+		totalPages: number;
+	}) => {
 		if (totalPages <= 1) return null;
 		return (
 			<div className="flex items-center justify-between mt-3 px-1">
@@ -607,8 +727,12 @@ const EnrollmentManager = () => {
 			{/* ── Tab switcher ────────────────────────────────────────────────────── */}
 			<div className="flex items-center gap-1 bg-white dark:bg-slate-900 rounded-2xl p-1.5 w-fit shadow-sm border border-slate-200/60 dark:border-slate-700/60">
 				{[
-					{ key: "manual", label: "ربط يدوي", icon: UserPlus },
-					{ key: "excel", label: "استيراد Excel", icon: FileSpreadsheet },
+					{ key: "manual" as const, label: "ربط يدوي", icon: UserPlus },
+					{
+						key: "excel" as const,
+						label: "استيراد Excel",
+						icon: FileSpreadsheet,
+					},
 				].map((t) => (
 					<button
 						key={t.key}
@@ -641,10 +765,10 @@ const EnrollmentManager = () => {
 								<div className="space-y-1">
 									<p className="font-black">
 										تم التسجيل بنجاح — {enrollResult.enrolled} تسجيل جديد
-										{enrollResult.duplicates > 0 &&
+										{(enrollResult.duplicates ?? 0) > 0 &&
 											` · ${enrollResult.duplicates} مكرر تم تخطيه`}
 									</p>
-									{enrollResult.errors > 0 && (
+									{(enrollResult.errors ?? 0) > 0 && (
 										<p className="text-xs opacity-80">
 											{enrollResult.errors} صف به خطأ
 										</p>
@@ -1097,9 +1221,10 @@ const EnrollmentManager = () => {
 								))}
 							</div>
 
-							{importResult.details?.length > 0 && (
+							{(importResult.details?.length ?? 0) > 0 && (
 								<>
 									<button
+										type="button"
 										onClick={() => setShowImportDetails((v) => !v)}
 										className="flex items-center gap-2 text-xs font-black text-blue-700 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
 									>
@@ -1134,7 +1259,7 @@ const EnrollmentManager = () => {
 													</tr>
 												</thead>
 												<tbody>
-													{importResult.details.map((row, i) => (
+													{importResult.details?.map((row, i) => (
 														<ImportResultRow key={i} row={row} />
 													))}
 												</tbody>

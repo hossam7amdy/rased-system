@@ -18,6 +18,7 @@ export interface Course {
 	course_name: string;
 	semester: string;
 	academic_year: string;
+	professor_name?: string;
 	student_count?: number;
 	session_count?: number;
 }

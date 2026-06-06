@@ -28,7 +28,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["src/features/admin/EnrollmentManager.jsx"],
+			"includes": ["src/features/admin/EnrollmentManager.tsx"],
 			"linter": {
 				"rules": {
 					"a11y": {
