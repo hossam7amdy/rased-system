@@ -1,38 +1,26 @@
 import ExcelJS from "exceljs";
-import pool from "../config/database.js";
-import cacheClient from "../config/redis.js";
+import type { Request, Response } from "express";
+import pool from "../config/database.ts";
+import cacheClient from "../config/redis.ts";
 import qrTokenService, {
 	ROTATION_INTERVAL_MS,
-} from "../services/qrTokenService.js";
-import TokenEncryption from "../utils/tokenEncryption.js";
+} from "../services/qrTokenService.ts";
+import TokenEncryption from "../utils/tokenEncryption.ts";
 
-/**
- * Attendance Controller - 2026 Updated Version
- * يدير عمليات الحضور، الجلسات، التحقق من الـ QR، والتقارير.
- *
- * ✅ التعديلات المهمة:
- *   1. scanQR: يجيب session_id النشطة ويحفظها في attendance_records
- *   2. scanQR: يحسب نسبة الحضور المحدثة ويبعتها للدكتور عبر Socket
- *   3. scanQR: يبعت Socket لـ room الـ courseId والـ sessionId
- *   4. endSession: يوقف الـ rotation بالـ courseId الصح
- *   5. manualOverride: يحفظ course_id مع session_id
- *   6. getSessionAttendance: يرجع نسبة الحضور التراكمية لكل طالب
- */
 const attendanceController = {
-	// ============================================================
-	// 1. إنشاء جلسة تحضير جديدة (الدكتور)
-	// POST /api/attendance/sessions
-	// ============================================================
-	createSession: async (req, res) => {
+	createSession: async (req: Request, res: Response): Promise<void> => {
 		try {
-			const { courseId, sessionName, sessionDate } = req.body;
-			const professorId = req.user.id;
+			const { courseId, sessionName, sessionDate } = req.body as {
+				courseId: string;
+				sessionName?: string;
+				sessionDate?: string;
+			};
+			const professorId = req.user!.id;
 
 			console.log(
 				`🚀 [ATTEMPT_START] Professor: ${professorId} | Course: ${courseId}`,
 			);
 
-			// التأكد من ملكية المادة
 			const courseCheck = await pool.query(
 				"SELECT id FROM courses WHERE id = $1 AND professor_id = $2",
 				[courseId, professorId],
@@ -42,35 +30,34 @@ const attendanceController = {
 				console.warn(
 					`⚠️ [AUTH_DENIED] Professor ${professorId} tried to access course ${courseId}`,
 				);
-				return res.status(403).json({
+				res.status(403).json({
 					success: false,
 					message: "غير مسموح لك بإنشاء جلسة لهذه المادة.",
 				});
+				return;
 			}
 
-			// إغلاق أي جلسات قديمة نشطة لهذه المادة
 			await pool.query(
 				"UPDATE attendance_sessions SET is_active = false WHERE course_id = $1 AND is_active = true",
 				[courseId],
 			);
 
-			const finalDate = sessionDate || new Date().toISOString().split("T")[0];
+			const finalDate =
+				sessionDate ?? new Date().toISOString().split("T")[0];
 
-			// إنشاء سجل الجلسة
 			const result = await pool.query(
-				`INSERT INTO attendance_sessions 
+				`INSERT INTO attendance_sessions
          (course_id, session_name, session_date, start_time, is_active)
          VALUES ($1, $2, $3, NOW(), true)
          RETURNING *`,
-				[courseId, sessionName || "محاضرة جديدة", finalDate],
+				[courseId, sessionName ?? "محاضرة جديدة", finalDate],
 			);
 
 			const session = result.rows[0];
 			console.log(
-				`✅ [SESSION_CREATED] ID: ${session.id} | Course: ${courseId}`,
+				`✅ [SESSION_CREATED] ID: ${(session as { id: string }).id} | Course: ${courseId}`,
 			);
 
-			// تشغيل تدوير الـ QR باستخدام courseId
 			if (req.io) {
 				try {
 					qrTokenService.startRotation(courseId, req.io);
@@ -94,14 +81,10 @@ const attendanceController = {
 		}
 	},
 
-	// ============================================================
-	// 2. إنهاء جلسة التحضير (الدكتور)
-	// PATCH /api/attendance/sessions/:sessionId/end
-	// ============================================================
-	endSession: async (req, res) => {
+	endSession: async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { sessionId } = req.params;
-			const professorId = req.user.id;
+			const professorId = req.user!.id;
 
 			const sessionCheck = await pool.query(
 				`SELECT s.id, s.course_id FROM attendance_sessions s
@@ -111,26 +94,22 @@ const attendanceController = {
 			);
 
 			if (sessionCheck.rows.length === 0) {
-				return res
-					.status(403)
-					.json({ success: false, message: "Access denied." });
+				res.status(403).json({ success: false, message: "Access denied." });
+				return;
 			}
 
-			// ✅ إيقاف الـ rotation بالـ courseId لأن startRotation اشتغل بيه
-			const courseId = sessionCheck.rows[0].course_id;
+			const courseId = (sessionCheck.rows[0] as { course_id: string })
+				.course_id;
 			qrTokenService.stopRotation(courseId);
 
 			await pool.query(
-				`UPDATE attendance_sessions 
+				`UPDATE attendance_sessions
          SET is_active = false, end_time = NOW()
          WHERE id = $1`,
 				[sessionId],
 			);
 
-			res.json({
-				success: true,
-				message: "Session ended successfully.",
-			});
+			res.json({ success: true, message: "Session ended successfully." });
 		} catch (error) {
 			console.error("❌ End session error:", error);
 			res.status(500).json({
@@ -140,82 +119,76 @@ const attendanceController = {
 		}
 	},
 
-	// ============================================================
-	// 3. تسجيل الحضور بمسح QR (الطالب)
-	// POST /api/attendance/scan
-	// ============================================================
-	scanQR: async (req, res) => {
+	scanQR: async (req: Request, res: Response): Promise<void> => {
 		try {
-			const { token } = req.body;
-			const studentId = req.user.id;
+			const { token } = req.body as { token: string };
+			const studentId = req.user!.id;
 
-			// 1. التحقق من صلاحية التوكن عبر Redis
-			const validation = await qrTokenService.validateToken(token, null);
+			const validation = await qrTokenService.validateToken(token);
 
 			if (!validation.valid) {
 				console.error(`❌ [REJECTED] ${validation.message}`);
-				return res.status(400).json({
+				res.status(400).json({
 					success: false,
 					message: validation.message,
 				});
+				return;
 			}
 
 			const courseId = validation.courseId;
 			console.log(
-				`🚀 محاولة تحضير: الطالب ${req.user.email} في المادة ${courseId}`,
+				`🚀 محاولة تحضير: الطالب ${req.user!.email} في المادة ${courseId}`,
 			);
 
-			// 2. التأكد أن الطالب مسجل في المادة
 			const enrollmentCheck = await pool.query(
 				"SELECT id FROM enrollments WHERE student_id = $1 AND course_id = $2",
 				[studentId, courseId],
 			);
 
 			if (enrollmentCheck.rows.length === 0) {
-				return res.status(403).json({
+				res.status(403).json({
 					success: false,
 					message: "عذراً، أنت غير مسجل في هذه المادة.",
 				});
+				return;
 			}
 
-			// 3. ✅ جلب الجلسة النشطة الحالية للمادة (ضروري لحفظ session_id)
 			const activeSession = await pool.query(
 				"SELECT id FROM attendance_sessions WHERE course_id = $1 AND is_active = true LIMIT 1",
 				[courseId],
 			);
 
 			if (activeSession.rows.length === 0) {
-				return res.status(400).json({
+				res.status(400).json({
 					success: false,
 					message: "لا توجد جلسة نشطة لهذه المادة حالياً.",
 				});
+				return;
 			}
 
-			const sessionId = activeSession.rows[0].id;
+			const sessionId = (activeSession.rows[0] as { id: string }).id;
 
-			// 4. منع التكرار في نفس الجلسة
 			const duplicateCheck = await pool.query(
 				"SELECT id FROM attendance_records WHERE student_id = $1 AND session_id = $2",
 				[studentId, sessionId],
 			);
 
 			if (duplicateCheck.rows.length > 0) {
-				return res.status(409).json({
+				res.status(409).json({
 					success: false,
 					message: "تم تسجيل حضورك في هذه المحاضرة مسبقاً.",
 				});
+				return;
 			}
 
-			// 5. ✅ حفظ الحضور مع session_id و course_id معاً
 			await pool.query(
 				`INSERT INTO attendance_records (session_id, course_id, student_id, scanned_at, status)
          VALUES ($1, $2, $3, NOW(), 'present')`,
 				[sessionId, courseId, studentId],
 			);
 
-			// 6. ✅ حساب نسبة الحضور المحدثة للطالب في هذه المادة
 			const statsResult = await pool.query(
-				`SELECT 
+				`SELECT
            COUNT(DISTINCT s.id)  AS total_sessions,
            COUNT(DISTINCT ar.id) AS attended_sessions
          FROM attendance_sessions s
@@ -225,30 +198,26 @@ const attendanceController = {
 				[studentId, courseId],
 			);
 
-			const total = parseInt(statsResult.rows[0].total_sessions, 10) || 0;
-			const attended = parseInt(statsResult.rows[0].attended_sessions, 10) || 0;
+			const statsRow = statsResult.rows[0] as {
+				total_sessions: string;
+				attended_sessions: string;
+			};
+			const total = parseInt(statsRow?.total_sessions ?? "0", 10);
+			const attended = parseInt(statsRow?.attended_sessions ?? "0", 10);
 			const percentage = total > 0 ? Math.round((attended / total) * 100) : 0;
 
-			// 7. ✅ إشعار الدكتور عبر Socket ببيانات كاملة
 			if (req.io) {
 				const payload = {
-					studentId: studentId,
-					studentName: req.user.full_name,
-					studentUniversityId: req.user.student_id,
+					studentId,
+					studentName: req.user!.full_name,
+					studentUniversityId: req.user!.student_id,
 					scannedAt: new Date(),
-					sessionId: sessionId,
-					courseId: courseId,
-					attendanceStats: {
-						attended: attended,
-						total: total,
-						percentage: percentage,
-					},
+					sessionId,
+					courseId,
+					attendanceStats: { attended, total, percentage },
 				};
 
-				// إرسال للـ room الخاصة بالمادة (الدكتور يعمل join بالـ courseId)
-				req.io.to(courseId.toString()).emit("student_attended", payload);
-
-				// إرسال للـ room الخاصة بالجلسة أيضاً (للتوافق مع أي implementation)
+				req.io.to(courseId!.toString()).emit("student_attended", payload);
 				req.io.to(sessionId.toString()).emit("student_attended", payload);
 
 				console.log(
@@ -270,52 +239,38 @@ const attendanceController = {
 		}
 	},
 
-	// ============================================================
-	// 4. جلب الجلسات النشطة (الطالب)
-	// GET /api/attendance/active-sessions
-	// ============================================================
-	getActiveSessions: async (req, res) => {
+	getActiveSessions: async (req: Request, res: Response): Promise<void> => {
 		try {
-			const studentId = req.user.id;
+			const studentId = req.user!.id;
 
 			const result = await pool.query(
-				`SELECT 
-           s.id, 
-           s.session_name, 
-           s.session_date, 
-           c.course_name, 
+				`SELECT
+           s.id,
+           s.session_name,
+           s.session_date,
+           c.course_name,
            c.course_code
          FROM attendance_sessions s
          JOIN courses c ON s.course_id = c.id
          JOIN enrollments e ON c.id = e.course_id
-         WHERE e.student_id = $1 
+         WHERE e.student_id = $1
            AND s.is_active = true`,
 				[studentId],
 			);
 
-			res.json({
-				success: true,
-				data: result.rows,
-			});
+			res.json({ success: true, data: result.rows });
 		} catch (error) {
 			console.error("❌ Error fetching active sessions:", error);
-			res
-				.status(500)
-				.json({ success: false, message: "Internal Server Error" });
+			res.status(500).json({ success: false, message: "Internal Server Error" });
 		}
 	},
 
-	// ============================================================
-	// 5. جلب سجل الحضور لجلسة معينة (الدكتور)
-	// GET /api/attendance/sessions/:sessionId
-	// ============================================================
-	getSessionAttendance: async (req, res) => {
+	getSessionAttendance: async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { sessionId } = req.params;
 
-			// ✅ يرجع الحاضرين مع نسبة الحضور التراكمية لكل طالب
 			const records = await pool.query(
-				`SELECT 
+				`SELECT
            ar.id,
            ar.scanned_at,
            ar.is_manual_override,
@@ -342,33 +297,27 @@ const attendanceController = {
 				[sessionId],
 			);
 
-			const recordsWithPercentage = records.rows.map((r) => ({
-				...r,
-				attendance_percentage:
-					r.total_sessions > 0
-						? Math.round((r.total_attended / r.total_sessions) * 100)
-						: 0,
-			}));
-
-			res.json({
-				success: true,
-				data: { records: recordsWithPercentage },
+			const recordsWithPercentage = records.rows.map((r) => {
+				const row = r as { total_sessions: number; total_attended: number };
+				return {
+					...r,
+					attendance_percentage:
+						row.total_sessions > 0
+							? Math.round((row.total_attended / row.total_sessions) * 100)
+							: 0,
+				};
 			});
+
+			res.json({ success: true, data: { records: recordsWithPercentage } });
 		} catch (error) {
 			console.error("❌ Get attendance error:", error);
-			res
-				.status(500)
-				.json({ success: false, message: "Error fetching records." });
+			res.status(500).json({ success: false, message: "Error fetching records." });
 		}
 	},
 
-	// ============================================================
-	// 6. سجل حضور الطالب التاريخي
-	// GET /api/attendance/student
-	// ============================================================
-	getStudentAttendance: async (req, res) => {
+	getStudentAttendance: async (req: Request, res: Response): Promise<void> => {
 		try {
-			const studentId = req.user.id;
+			const studentId = req.user!.id;
 
 			const result = await pool.query(
 				`SELECT ar.*, s.session_name, s.session_date, c.course_name, c.course_code
@@ -380,26 +329,21 @@ const attendanceController = {
 				[studentId],
 			);
 
-			res.json({
-				success: true,
-				data: { attendance: result.rows },
-			});
+			res.json({ success: true, data: { attendance: result.rows } });
 		} catch (error) {
 			console.error("❌ Student history error:", error);
-			res
-				.status(500)
-				.json({ success: false, message: "Error fetching history." });
+			res.status(500).json({ success: false, message: "Error fetching history." });
 		}
 	},
 
-	// ============================================================
-	// 7. التحضير اليدوي (Override) - الدكتور
-	// POST /api/attendance/manual-override
-	// ============================================================
-	manualOverride: async (req, res) => {
+	manualOverride: async (req: Request, res: Response): Promise<void> => {
 		try {
-			const { sessionId, studentId, reason } = req.body;
-			const professorId = req.user.id;
+			const { sessionId, studentId, reason } = req.body as {
+				sessionId: string;
+				studentId: string;
+				reason?: string;
+			};
+			const professorId = req.user!.id;
 
 			const sessionCheck = await pool.query(
 				`SELECT s.id, s.course_id FROM attendance_sessions s
@@ -409,12 +353,12 @@ const attendanceController = {
 			);
 
 			if (sessionCheck.rows.length === 0) {
-				return res
-					.status(403)
-					.json({ success: false, message: "Access denied." });
+				res.status(403).json({ success: false, message: "Access denied." });
+				return;
 			}
 
-			const courseId = sessionCheck.rows[0].course_id;
+			const courseId = (sessionCheck.rows[0] as { course_id: string })
+				.course_id;
 
 			const existing = await pool.query(
 				"SELECT id FROM attendance_records WHERE session_id = $1 AND student_id = $2",
@@ -422,18 +366,19 @@ const attendanceController = {
 			);
 
 			if (existing.rows.length > 0) {
-				return res
-					.status(409)
-					.json({ success: false, message: "Student already attended." });
+				res.status(409).json({
+					success: false,
+					message: "Student already attended.",
+				});
+				return;
 			}
 
-			// ✅ يحفظ course_id مع session_id
 			const result = await pool.query(
-				`INSERT INTO attendance_records 
+				`INSERT INTO attendance_records
          (session_id, course_id, student_id, is_manual_override, override_reason, scanned_at, status)
          VALUES ($1, $2, $3, true, $4, NOW(), 'present')
          RETURNING *`,
-				[sessionId, courseId, studentId, reason || "Manual override"],
+				[sessionId, courseId, studentId, reason ?? "Manual override"],
 			);
 
 			res.json({
@@ -443,57 +388,55 @@ const attendanceController = {
 			});
 		} catch (error) {
 			console.error("❌ Manual override error:", error);
-			res
-				.status(500)
-				.json({ success: false, message: "Error in manual override." });
+			res.status(500).json({
+				success: false,
+				message: "Error in manual override.",
+			});
 		}
 	},
 
-	// ============================================================
-	// 8. جلب التوكن الحالي للـ QR (الدكتور - polling fallback)
-	// GET /api/attendance/current-qr/:courseId
-	// ============================================================
-	getCurrentQR: async (req, res) => {
+	getCurrentQR: async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { courseId } = req.params;
 			const token = await cacheClient.get(`active_qr_session_${courseId}`);
 
 			if (!token) {
-				return res.status(404).json({
+				res.status(404).json({
 					success: false,
 					message: "لا توجد جلسة QR نشطة لهذه المادة.",
 				});
+				return;
 			}
 
 			const { t: generatedAt } = TokenEncryption.decrypt(token);
 			const remainingSeconds = Math.max(
 				0,
-				Math.round((ROTATION_INTERVAL_MS - (Date.now() - generatedAt)) / 1000),
+				Math.round(
+					(ROTATION_INTERVAL_MS - (Date.now() - generatedAt)) / 1000,
+				),
 			);
 
-			return res.json({ success: true, data: { token, remainingSeconds } });
+			res.json({ success: true, data: { token, remainingSeconds } });
 		} catch (error) {
 			console.error("❌ Get current QR error:", error);
 			res.status(500).json({ success: false, message: "Error fetching QR." });
 		}
 	},
 
-	// ============================================================
-	// 9. تصدير الحضور إلى Excel (الدكتور)
-	// GET /api/attendance/export/:courseId
-	// ============================================================
-	exportAttendance: async (req, res) => {
+	exportAttendance: async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { courseId } = req.params;
-			const professorId = req.user.id;
+			const professorId = req.user!.id;
 
 			const courseInfo = await pool.query(
 				"SELECT * FROM courses WHERE id = $1 AND professor_id = $2",
 				[courseId, professorId],
 			);
 
-			if (courseInfo.rows.length === 0)
-				return res.status(403).send("Forbidden");
+			if (courseInfo.rows.length === 0) {
+				res.status(403).send("Forbidden");
+				return;
+			}
 
 			const workbook = new ExcelJS.Workbook();
 			const worksheet = workbook.addWorksheet("Attendance Report");
@@ -520,7 +463,12 @@ const attendanceController = {
 				[courseId],
 			);
 
-			stats.rows.forEach((row) => {
+			for (const row of stats.rows as Array<{
+				student_id: string;
+				full_name: string;
+				total_sessions: number;
+				attended_sessions: number;
+			}>) {
 				const perc =
 					row.total_sessions > 0
 						? (row.attended_sessions / row.total_sessions) * 100
@@ -532,7 +480,7 @@ const attendanceController = {
 					attended: row.attended_sessions,
 					percentage: `${perc.toFixed(1)}%`,
 				});
-			});
+			}
 
 			res.setHeader(
 				"Content-Type",

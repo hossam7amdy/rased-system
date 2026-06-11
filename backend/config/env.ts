@@ -2,7 +2,7 @@
 // module reads process.env. Missing .env is fine — the host (e.g. Bonto) or the
 // real environment provides the vars.
 try {
-  process.loadEnvFile();
+	process.loadEnvFile();
 } catch (err) {
-  if (err.code !== "ENOENT") throw err;
+	if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
 }
