@@ -221,14 +221,22 @@ const adminController = {
 		for (const row of rows) {
 			const { rowNum, studentId: rawSid, studentName, courseCode: rawCode, courseName } = row;
 
-			const sid = rawSid?.trim().toLowerCase();
-			const sname = studentName?.trim().toLowerCase();
+			const sid =
+				rawSid !== undefined ? String(rawSid).trim().toLowerCase() : undefined;
+			const sname =
+				studentName !== undefined
+					? String(studentName).trim().toLowerCase()
+					: undefined;
 			const studentDbId =
 				(sid ? studentByUnivId.get(sid) : undefined) ??
 				(sname ? studentByName.get(sname) : undefined);
 
-			const code = rawCode?.trim().toLowerCase();
-			const cname = courseName?.trim().toLowerCase();
+			const code =
+				rawCode !== undefined ? String(rawCode).trim().toLowerCase() : undefined;
+			const cname =
+				courseName !== undefined
+					? String(courseName).trim().toLowerCase()
+					: undefined;
 			const courseDbId =
 				(code ? courseByCode.get(code) : undefined) ??
 				(cname ? courseByName.get(cname) : undefined);

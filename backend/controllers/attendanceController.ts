@@ -15,6 +15,15 @@ const attendanceController = {
 				sessionName?: string;
 				sessionDate?: string;
 			};
+
+			if (!courseId) {
+				res.status(400).json({
+					success: false,
+					message: "معرف المادة مطلوب.",
+				});
+				return;
+			}
+
 			const professorId = req.user!.id;
 
 			console.log(
@@ -43,7 +52,7 @@ const attendanceController = {
 			);
 
 			const finalDate =
-				sessionDate ?? new Date().toISOString().split("T")[0];
+				sessionDate ?? new Date().toLocaleDateString("en-CA");
 
 			const result = await pool.query(
 				`INSERT INTO attendance_sessions
@@ -298,12 +307,17 @@ const attendanceController = {
 			);
 
 			const recordsWithPercentage = records.rows.map((r) => {
-				const row = r as { total_sessions: number; total_attended: number };
+				const totalSessions =
+					parseInt((r as { total_sessions: string }).total_sessions, 10) || 0;
+				const totalAttended =
+					parseInt((r as { total_attended: string }).total_attended, 10) || 0;
 				return {
 					...r,
+					total_sessions: totalSessions,
+					total_attended: totalAttended,
 					attendance_percentage:
-						row.total_sessions > 0
-							? Math.round((row.total_attended / row.total_sessions) * 100)
+						totalSessions > 0
+							? Math.round((totalAttended / totalSessions) * 100)
 							: 0,
 				};
 			});
@@ -343,6 +357,15 @@ const attendanceController = {
 				studentId: string;
 				reason?: string;
 			};
+
+			if (!sessionId || !studentId) {
+				res.status(400).json({
+					success: false,
+					message: "معرف الجلسة ومعرف الطالب مطلوبان.",
+				});
+				return;
+			}
+
 			const professorId = req.user!.id;
 
 			const sessionCheck = await pool.query(

@@ -83,7 +83,7 @@ const analyticsController = {
 						total_students: totalStudents,
 						total_attendance: totalAttendance,
 						average_attendance:
-							totalSessions > 0
+							totalSessions > 0 && totalStudents > 0
 								? Math.round(
 										(totalAttendance / (totalSessions * totalStudents)) * 100,
 									)

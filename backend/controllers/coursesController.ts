@@ -166,6 +166,15 @@ const coursesController = {
 		try {
 			const { courseId } = req.params;
 			const { studentIds } = req.body as { studentIds: string[] };
+
+			if (!Array.isArray(studentIds) || studentIds.length === 0) {
+				res.status(400).json({
+					success: false,
+					message: "يجب تحديد طالب واحد على الأقل.",
+				});
+				return;
+			}
+
 			const professorId = req.user!.id;
 
 			const courseCheck = await pool.query(
@@ -241,22 +250,23 @@ const coursesController = {
 				[courseId],
 			);
 
-			const studentsWithAttendance = result.rows.map((student) => ({
-				...student,
-				attendance_percentage:
-					(student.total_sessions as number) > 0
-						? Math.round(
-								((student.attended_sessions as number) /
-									(student.total_sessions as number)) *
-									100,
-							)
-						: 0,
-				is_at_risk:
-					(student.total_sessions as number) > 0 &&
-					(student.attended_sessions as number) /
-						(student.total_sessions as number) <
-						0.25,
-			}));
+			const studentsWithAttendance = result.rows.map((student) => {
+				const totalSessions =
+					parseInt(student.total_sessions as string, 10) || 0;
+				const attendedSessions =
+					parseInt(student.attended_sessions as string, 10) || 0;
+				return {
+					...student,
+					total_sessions: totalSessions,
+					attended_sessions: attendedSessions,
+					attendance_percentage:
+						totalSessions > 0
+							? Math.round((attendedSessions / totalSessions) * 100)
+							: 0,
+					is_at_risk:
+						totalSessions > 0 && attendedSessions / totalSessions < 0.25,
+				};
+			});
 
 			res.json({ success: true, data: { students: studentsWithAttendance } });
 		} catch (error) {
@@ -287,17 +297,21 @@ const coursesController = {
 				[studentId],
 			);
 
-			const coursesWithPercentage = result.rows.map((course) => ({
-				...course,
-				attendance_percentage:
-					(course.total_sessions as number) > 0
-						? Math.round(
-								((course.attended_sessions as number) /
-									(course.total_sessions as number)) *
-									100,
-							)
-						: 0,
-			}));
+			const coursesWithPercentage = result.rows.map((course) => {
+				const totalSessions =
+					parseInt(course.total_sessions as string, 10) || 0;
+				const attendedSessions =
+					parseInt(course.attended_sessions as string, 10) || 0;
+				return {
+					...course,
+					total_sessions: totalSessions,
+					attended_sessions: attendedSessions,
+					attendance_percentage:
+						totalSessions > 0
+							? Math.round((attendedSessions / totalSessions) * 100)
+							: 0,
+				};
+			});
 
 			res.json({ success: true, courses: coursesWithPercentage });
 		} catch (error) {
