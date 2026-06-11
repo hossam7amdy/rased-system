@@ -1,22 +1,21 @@
-import "../config/env.js";
+import "../config/env.ts";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 
 const pool = new Pool({
 	host: process.env.DB_HOST,
-	port: process.env.DB_PORT,
+	port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
 	database: process.env.DB_NAME,
 	user: process.env.DB_USER,
-	password: process.env.DB_PASSWORD, // كلمة سرك الحالية
+	password: process.env.DB_PASSWORD,
 });
 
-const initDatabase = async () => {
+const initDatabase = async (): Promise<void> => {
 	let client;
 	try {
 		client = await pool.connect();
 		console.log("📊 Connected to PostgreSQL. Starting initialization...");
 
-		// 1. إنشاء الأنواع (ENUM)
 		await client.query(`
       DO $$ BEGIN
         CREATE TYPE user_role AS ENUM ('admin', 'professor', 'student');
@@ -25,7 +24,6 @@ const initDatabase = async () => {
       END $$;
     `);
 
-		// 2. إنشاء جدول المستخدمين
 		await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -40,7 +38,6 @@ const initDatabase = async () => {
     `);
 		console.log("✅ Users table created");
 
-		// 3. إنشاء جدول المواد
 		await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -54,7 +51,6 @@ const initDatabase = async () => {
     `);
 		console.log("✅ Courses table created");
 
-		// 4. إنشاء بقية الجداول (Enrollments, Sessions, Records)
 		await client.query(`
       CREATE TABLE IF NOT EXISTS enrollments (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -63,7 +59,7 @@ const initDatabase = async () => {
         enrolled_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(course_id, student_id)
       );
-      
+
       CREATE TABLE IF NOT EXISTS attendance_sessions (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
@@ -89,9 +85,6 @@ const initDatabase = async () => {
     `);
 		console.log("✅ All attendance tables created");
 
-		// Migrate existing installs: CREATE TABLE IF NOT EXISTS skips altering an
-		// already-created attendance_records table, so add the columns the
-		// controllers write (course_id, status) if they are missing.
 		await client.query(`
       ALTER TABLE attendance_records
         ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
@@ -99,7 +92,6 @@ const initDatabase = async () => {
     `);
 		console.log("✅ attendance_records columns ensured (course_id, status)");
 
-		// 5. إنشاء حساب المدير الافتراضي
 		const adminPassword = await bcrypt.hash("admin123", 10);
 		await client.query(
 			`
@@ -112,7 +104,7 @@ const initDatabase = async () => {
 
 		console.log("✨ Success! Admin login: admin@rased.edu / admin123");
 	} catch (error) {
-		console.error("❌ Error:", error.message);
+		console.error("❌ Error:", (error as Error).message);
 	} finally {
 		if (client) client.release();
 		await pool.end();

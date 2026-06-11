@@ -6,26 +6,24 @@ import {
 	scryptSync,
 } from "node:crypto";
 
-// مفتاح احتياطي في حال غياب QR_SECRET من ملف .env (نفس نمط auth.js)
 const DEFAULT_QR_SECRET = "rased_super_secret_key_2024_qr_signing";
 
 const ALGORITHM = "aes-256-gcm";
-const IV_LENGTH = 12; // 96-bit IV الموصى به لـ GCM
+const IV_LENGTH = 12;
 
-// نشتق مفتاح 32 بايت مرة واحدة عند تحميل الموديول
 const KEY = scryptSync(
-	process.env.QR_SECRET || DEFAULT_QR_SECRET,
+	process.env.QR_SECRET ?? DEFAULT_QR_SECRET,
 	"rased_qr_salt",
 	32,
 );
 
+export interface TokenData {
+	sId: string;
+	t: number;
+}
+
 const TokenEncryption = {
-	/**
-	 * تشفير البيانات بـ AES-256-GCM (تشفير موثّق: أي تلاعب يفشل فك التشفير)
-	 * @param {Object} data - بيانات التوكن
-	 * @returns {string} - بصيغة iv:authTag:ciphertext (hex)
-	 */
-	encrypt(data) {
+	encrypt(data: TokenData): string {
 		try {
 			const iv = randomBytes(IV_LENGTH);
 			const cipher = createCipheriv(ALGORITHM, KEY, iv);
@@ -44,18 +42,13 @@ const TokenEncryption = {
 		}
 	},
 
-	/**
-	 * فك تشفير التوكن والتحقق من سلامته (auth tag)
-	 * @param {string} encryptedToken - بصيغة iv:authTag:ciphertext
-	 * @returns {Object} - البيانات الأصلية
-	 */
-	decrypt(encryptedToken) {
-		const parts = encryptedToken?.split(":");
-		if (parts?.length !== 3) {
+	decrypt(encryptedToken: string): TokenData {
+		const parts = encryptedToken.split(":");
+		if (parts.length !== 3) {
 			throw new Error("Token decoding failed - Invalid Format");
 		}
 
-		const [ivHex, authTagHex, dataHex] = parts;
+		const [ivHex, authTagHex, dataHex] = parts as [string, string, string];
 		const decipher = createDecipheriv(
 			ALGORITHM,
 			KEY,
@@ -65,23 +58,17 @@ const TokenEncryption = {
 
 		const decrypted = Buffer.concat([
 			decipher.update(Buffer.from(dataHex, "hex")),
-			decipher.final(), // يرمي خطأ إذا تم التلاعب بالتوكن
+			decipher.final(),
 		]);
 
-		return JSON.parse(decrypted.toString("utf8"));
+		return JSON.parse(decrypted.toString("utf8")) as TokenData;
 	},
 
-	/**
-	 * توليد Hash للمفتاح في Redis
-	 */
-	hash(token) {
+	hash(token: string): string {
 		return createHash("sha256").update(token).digest("hex");
 	},
 
-	/**
-	 * توليد Salt عشوائي
-	 */
-	generateSalt() {
+	generateSalt(): string {
 		return randomBytes(16).toString("hex");
 	},
 };
