@@ -1,22 +1,22 @@
 import "../config/env.ts";
 import bcrypt from "bcryptjs";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 
 const pool = new Pool({
-	host: process.env.DB_HOST,
-	port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
-	database: process.env.DB_NAME,
-	user: process.env.DB_USER,
-	password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
 });
 
 const initDatabase = async (): Promise<void> => {
-	let client;
-	try {
-		client = await pool.connect();
-		console.log("📊 Connected to PostgreSQL. Starting initialization...");
+  let client: PoolClient | null = null;
+  try {
+    client = await pool.connect();
+    console.log("📊 Connected to PostgreSQL. Starting initialization...");
 
-		await client.query(`
+    await client.query(`
       DO $$ BEGIN
         CREATE TYPE user_role AS ENUM ('admin', 'professor', 'student');
       EXCEPTION
@@ -24,7 +24,7 @@ const initDatabase = async (): Promise<void> => {
       END $$;
     `);
 
-		await client.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -36,9 +36,9 @@ const initDatabase = async (): Promise<void> => {
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
-		console.log("✅ Users table created");
+    console.log("✅ Users table created");
 
-		await client.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         course_code VARCHAR(20) UNIQUE NOT NULL,
@@ -49,9 +49,9 @@ const initDatabase = async (): Promise<void> => {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-		console.log("✅ Courses table created");
+    console.log("✅ Courses table created");
 
-		await client.query(`
+    await client.query(`
       CREATE TABLE IF NOT EXISTS enrollments (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
@@ -83,32 +83,32 @@ const initDatabase = async (): Promise<void> => {
         UNIQUE(session_id, student_id)
       );
     `);
-		console.log("✅ All attendance tables created");
+    console.log("✅ All attendance tables created");
 
-		await client.query(`
+    await client.query(`
       ALTER TABLE attendance_records
         ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
         ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'present';
     `);
-		console.log("✅ attendance_records columns ensured (course_id, status)");
+    console.log("✅ attendance_records columns ensured (course_id, status)");
 
-		const adminPassword = await bcrypt.hash("admin123", 10);
-		await client.query(
-			`
+    const adminPassword = await bcrypt.hash("admin123", 10);
+    await client.query(
+      `
       INSERT INTO users (email, password_hash, role, full_name)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (email) DO NOTHING;
     `,
-			["admin@rased.edu", adminPassword, "admin", "System Administrator"],
-		);
+      ["admin@rased.edu", adminPassword, "admin", "System Administrator"],
+    );
 
-		console.log("✨ Success! Admin login: admin@rased.edu / admin123");
-	} catch (error) {
-		console.error("❌ Error:", (error as Error).message);
-	} finally {
-		if (client) client.release();
-		await pool.end();
-	}
+    console.log("✨ Success! Admin login: admin@rased.edu / admin123");
+  } catch (error) {
+    console.error("❌ Error:", (error as Error).message);
+  } finally {
+    if (client) client.release();
+    await pool.end();
+  }
 };
 
 initDatabase();

@@ -5,5 +5,5 @@
  * users working past midnight local time.
  */
 export function localISODate(d: Date = new Date()): string {
-	return d.toLocaleDateString("en-CA");
+  return d.toLocaleDateString("en-CA");
 }

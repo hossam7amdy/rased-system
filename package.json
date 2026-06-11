@@ -1,27 +1,36 @@
 {
-	"name": "rased-system",
-	"version": "1.0.0",
-	"private": true,
-	"description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
-	"scripts": {
-		"start": "node --experimental-strip-types backend/server.ts",
-		"check:fix": "biome check --write",
-		"postinstall": "git config core.hooksPath .githooks"
-	},
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/hossam7amdy/rased-system.git"
-	},
-	"workspaces": [
-		"backend"
-	],
-	"author": "Hossam Hamdy <hossamhamdy117@gmail.com>",
-	"bugs": {
-		"url": "https://github.com/hossam7amdy/rased-system/issues"
-	},
-	"homepage": "https://github.com/hossam7amdy/rased-system#readme",
-	"devDependencies": {
-		"@biomejs/biome": "2.4.16"
-	},
-	"packageManager": "yarn@1.22.22"
+  "name": "rased-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
+  "scripts": {
+    "start": "yarn workspace backend start",
+    "dev": "concurrently --names 'FE,BE' -c 'cyan,green' 'yarn workspace frontend dev' 'yarn workspace backend dev'",
+    "test": "concurrently 'yarn workspace frontend test' 'yarn workspace backend test'",
+    "check": "biome check . && prettier --check \"**/*.{md,yaml}\"",
+    "check:fix": "biome check . --write && prettier --write \"**/*.{md,yaml}\"",
+    "typecheck": "concurrently 'yarn workspace frontend typecheck' 'yarn workspace backend typecheck'"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hossam7amdy/rased-system.git"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "author": "Hossam Hamdy <hossamhamdy117@gmail.com>",
+  "bugs": {
+    "url": "https://github.com/hossam7amdy/rased-system/issues"
+  },
+  "homepage": "https://github.com/hossam7amdy/rased-system#readme",
+  "devDependencies": {
+    "@biomejs/biome": "2.4.16",
+    "@types/node": "^25.9.3",
+    "concurrently": "^10.0.3",
+    "lefthook": "^2.1.9",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3"
+  },
+  "packageManager": "yarn@1.22.22"
 }
