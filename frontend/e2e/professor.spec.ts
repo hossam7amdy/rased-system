@@ -35,33 +35,23 @@ test.describe("Professor dashboard", () => {
   });
 
   test("starts an attendance QR session", async ({ page }) => {
-    // Skip if no courses visible yet
     const startBtn = page
-      .getByRole("button", { name: /بدء جلسة|Start/i })
+      .getByRole("button", { name: /بدء التحضير|Start/i })
       .first();
-    const hasCourse = await startBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasCourse) {
-      test.skip(true, "no courses loaded in test DB");
-      return;
-    }
+    await expect(startBtn).toBeVisible({ timeout: 10_000 });
 
     await startBtn.click();
-    await expect(page.getByText(/جلسة نشطة/)).toBeVisible({ timeout: 10_000 });
+    // Active-session badge (exact match avoids the "جلسة نشطة: <course>" heading)
+    await expect(page.getByText("جلسة نشطة", { exact: true })).toBeVisible({
+      timeout: 10_000,
+    });
   });
 
   test("ends an active session", async ({ page }) => {
     const startBtn = page
-      .getByRole("button", { name: /بدء جلسة|Start/i })
+      .getByRole("button", { name: /بدء التحضير|Start/i })
       .first();
-    const hasCourse = await startBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!hasCourse) {
-      test.skip(true, "no courses loaded in test DB");
-      return;
-    }
+    await expect(startBtn).toBeVisible({ timeout: 10_000 });
 
     await startBtn.click();
     await page.waitForSelector('button:has-text("إنهاء الجلسة")', {

@@ -88,7 +88,7 @@ test.describe("Student dashboard", () => {
         Authorization: `Bearer ${profToken}`,
       },
       body: JSON.stringify({
-        courseId: Number(courseId),
+        courseId,
         sessionName: `E2E Session ${Date.now()}`,
         sessionDate: new Date().toISOString().split("T")[0],
       }),
@@ -130,7 +130,7 @@ test.describe("Student dashboard", () => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${studentToken}`,
         },
-        body: JSON.stringify({ token: qrToken, courseId: Number(courseId) }),
+        body: JSON.stringify({ token: qrToken, courseId }),
       });
 
       const scanBody = await scanRes.json();
