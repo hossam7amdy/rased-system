@@ -8,6 +8,7 @@
   "engines": {
     "node": ">=22.6.0"
   },
+  "engineStrict": true,
   "scripts": {
     "start": "node --experimental-strip-types server.ts",
     "dev": "node --watch --enable-source-maps --experimental-strip-types server.ts",
