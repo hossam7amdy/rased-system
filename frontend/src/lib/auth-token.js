@@ -7,24 +7,24 @@ export const TOKEN_KEY = "token";
 
 /** @returns {string | null} */
 export function getToken() {
-	try {
-		return localStorage.getItem(TOKEN_KEY);
-	} catch {
-		return null;
-	}
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
 /** @param {string | null | undefined} token */
 export function setToken(token) {
-	if (token) {
-		localStorage.setItem(TOKEN_KEY, token);
-	} else {
-		localStorage.removeItem(TOKEN_KEY);
-	}
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
 
 export function clearToken() {
-	localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY);
 }
 
 /**
@@ -33,5 +33,5 @@ export function clearToken() {
  * @returns {string | undefined}
  */
 export function bearer(token) {
-	return token ? `Bearer ${token}` : undefined;
+  return token ? `Bearer ${token}` : undefined;
 }
