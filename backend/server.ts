@@ -1,16 +1,11 @@
 import "./config/env.ts";
 import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
-import cors from "cors";
-import type { ErrorRequestHandler } from "express";
-import express, { json, urlencoded } from "express";
-import rateLimit from "express-rate-limit";
-import helmet from "helmet";
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
+import { createApp } from "./app.ts";
 import { end } from "./config/database.ts";
 import type { JwtPayload } from "./middleware/auth.ts";
-import routes from "./routes/index.ts";
 import { startRotation, stopRotation } from "./services/qrTokenService.ts";
 
 declare module "socket.io" {
@@ -19,11 +14,8 @@ declare module "socket.io" {
   }
 }
 
-const app = express();
-app.set("trust proxy", 1);
-const server = createServer(app);
-
-const io = new Server(server, {
+// io built first so createApp can wire it in before routes, then attached below.
+const io = new Server({
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
@@ -32,32 +24,9 @@ const io = new Server(server, {
   },
 });
 
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: "*", credentials: true }));
-app.use(json());
-app.use(urlencoded({ extended: true }));
-
-app.use((req, _res, next) => {
-  req.io = io;
-  next();
-});
-
-app.use((_req, res, next) => {
-  res.setHeader("Content-Type", "application/json; charset=utf-8");
-  next();
-});
-
-const limiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 1000,
-  message: {
-    success: false,
-    message: "Too many requests, please try again later.",
-  },
-});
-app.use("/api/", limiter);
-
-app.use("/api", routes);
+const app = createApp(io);
+const server = createServer(app);
+io.attach(server);
 
 io.use((socket, next) => {
   const token =
@@ -132,18 +101,6 @@ io.on("connection", (socket) => {
   });
 });
 
-const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-  console.error("🔥 Server Error:", err);
-  res.status(500).json({
-    success: false,
-    message:
-      process.env.NODE_ENV === "production"
-        ? "Internal Server Error"
-        : (err as Error).message,
-  });
-};
-app.use(errorHandler);
-
 const PORT = Number(process.env.PORT) || 5000;
 
 const networkInterfaces = _networkInterfaces();
@@ -178,5 +135,3 @@ process.on("SIGINT", () => {
     process.exit(0);
   });
 });
-
-export default { app, server, io };
