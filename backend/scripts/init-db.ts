@@ -1,8 +1,7 @@
 import "../config/env.ts";
-import bcrypt from "bcryptjs";
 import { Pool, type PoolClient } from "pg";
 
-// Idempotent schema + bootstrap admin. Single DDL source: init-db CLI + test setup.
+// Idempotent schema. Single DDL source: init-db CLI + test setup.
 export const applySchema = async (client: Pool | PoolClient): Promise<void> => {
   await client.query(`
     DO $$ BEGIN
@@ -75,16 +74,6 @@ export const applySchema = async (client: Pool | PoolClient): Promise<void> => {
       ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
       ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'present';
   `);
-
-  const adminPassword = await bcrypt.hash("admin123", 10);
-  await client.query(
-    `
-    INSERT INTO users (email, password_hash, role, full_name)
-    VALUES ($1, $2, $3, $4)
-    ON CONFLICT (email) DO NOTHING;
-  `,
-    ["admin@rased.edu", adminPassword, "admin", "System Administrator"],
-  );
 };
 
 const initDatabase = async (): Promise<void> => {
@@ -101,8 +90,7 @@ const initDatabase = async (): Promise<void> => {
     client = await pool.connect();
     console.log("📊 Connected to PostgreSQL. Starting initialization...");
     await applySchema(client);
-    console.log("✅ Schema applied (tables + bootstrap admin)");
-    console.log("✨ Success! Admin login: admin@rased.edu / admin123");
+    console.log("✅ Schema applied");
   } catch (error) {
     console.error("❌ Error:", (error as Error).message);
   } finally {
