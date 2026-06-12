@@ -77,13 +77,11 @@ async function upsertUser(u: {
 }
 
 async function seed(): Promise<void> {
-  // bootstrap admin created by applySchema
-  const adminRow = await pool.query<SeededUser>(
-    "SELECT id, email, role, full_name, student_id FROM users WHERE email = $1",
-    ["admin@rased.edu"],
-  );
-  if (!adminRow.rows[0]) throw new Error("bootstrap admin missing after seed");
-  state.admin = adminRow.rows[0];
+  state.admin = await upsertUser({
+    email: "admin@rased.edu",
+    role: "admin",
+    full_name: "System Administrator",
+  });
 
   state.prof = await upsertUser({
     email: state.creds.prof.email,
