@@ -8,7 +8,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    // Vitest owns *.test.{ts,tsx}; node:test owns *.test.mjs (pure logic).
+    // Vitest owns all unit tests. Playwright owns e2e/. No node:test.
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
 });
