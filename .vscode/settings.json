@@ -7,7 +7,7 @@
   "[typescript, json, jsonc]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
-  "[markdown, yml, yaml]": {
+  "[markdown, yml]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   }
 }

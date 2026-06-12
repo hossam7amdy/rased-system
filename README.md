@@ -394,7 +394,7 @@ CMD ["node", "server.js"]
 
 ### Using Docker Compose
 
-```yaml
+```yml
 version: "3.8"
 services:
   postgres:

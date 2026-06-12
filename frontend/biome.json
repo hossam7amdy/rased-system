@@ -8,9 +8,18 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
       "style": {
-        "noDescendingSpecificity": "warn"
+        "noDescendingSpecificity": "warn",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "node:test": "Use vitest (unit) or @playwright/test (e2e), not node:test.",
+              "node:assert": "Use vitest expect, not node:assert.",
+              "node:assert/strict": "Use vitest expect, not node:assert."
+            }
+          }
+        }
       },
       "a11y": {
         "useButtonType": "warn",
@@ -23,11 +32,6 @@
       "correctness": {
         "useExhaustiveDependencies": "warn"
       }
-    }
-  },
-  "javascript": {
-    "formatter": {
-      "quoteStyle": "double"
     }
   },
   "css": {

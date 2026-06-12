@@ -47,7 +47,8 @@ class InMemoryCache implements CacheClient {
     const timer = setTimeout(() => {
       this._store.delete(key);
       this._timers.delete(key);
-    }, ms);
+      // Don't let pending expiry timers keep the process alive (e.g. test runner).
+    }, ms).unref();
     this._timers.set(key, timer);
   }
 }
