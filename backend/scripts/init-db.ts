@@ -112,6 +112,6 @@ const initDatabase = async (): Promise<void> => {
 };
 
 // Run only when executed directly, not when imported.
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.filename === process.argv[1]) {
   initDatabase();
 }
