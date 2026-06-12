@@ -10,6 +10,7 @@ interface CacheClient {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, options?: SetOptions): Promise<unknown>;
   setEx(key: string, ttl: number, value: string): Promise<unknown>;
+  close(): Promise<void>;
 }
 
 class InMemoryCache implements CacheClient {
@@ -51,6 +52,14 @@ class InMemoryCache implements CacheClient {
     }, ms).unref();
     this._timers.set(key, timer);
   }
+
+  async close(): Promise<void> {
+    this._store.clear();
+    for (const timer of this._timers.values()) {
+      clearTimeout(timer);
+    }
+    this._timers.clear();
+  }
 }
 
 /**
@@ -85,6 +94,10 @@ class CacheProxy implements CacheClient {
   setEx(key: string, ttl: number, value: string): Promise<unknown> {
     return this._impl.setEx(key, ttl, value);
   }
+
+  async close(): Promise<void> {
+    await this._impl.close();
+  }
 }
 
 let cacheProxy: CacheProxy;
@@ -104,7 +117,7 @@ if (!process.env.REDIS_HOST) {
     password: process.env.REDIS_PASSWORD || undefined,
   });
 
-  cacheProxy = new CacheProxy(redisClient as unknown as CacheClient);
+  cacheProxy = new CacheProxy(redisClient);
 
   redisClient.on("connect", () => {
     console.log("🔴 Connected to Redis");
@@ -122,6 +135,7 @@ if (!process.env.REDIS_HOST) {
         "⚠️ Could not connect to Redis — falling back to in-memory cache.",
       );
       cacheProxy._swap(new InMemoryCache("Redis unavailable"));
+      redisClient.destroy();
     }
   })();
 }

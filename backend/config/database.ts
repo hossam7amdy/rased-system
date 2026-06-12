@@ -23,4 +23,3 @@ pool.on("error", (err) => {
 });
 
 export default pool;
-export const end = (): Promise<void> => pool.end();

@@ -2,6 +2,7 @@ import { after, before } from "node:test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import pool from "../config/database.ts";
+import redis from "../config/redis.ts";
 import { generateToken } from "../middleware/auth.ts";
 import { applySchema } from "../scripts/init-db.ts";
 
@@ -155,5 +156,5 @@ after(async () => {
   await pool.query(
     "TRUNCATE attendance_records, attendance_sessions, enrollments, courses, users CASCADE",
   );
-  await pool.end();
+  await Promise.allSettled([pool.end(), redis.close()]);
 });
