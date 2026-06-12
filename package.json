@@ -26,7 +26,7 @@
   },
   "homepage": "https://github.com/hossam7amdy/rased-system#readme",
   "devDependencies": {
-    "@biomejs/biome": "2.4.16",
+    "@biomejs/biome": "2.5.0",
     "@types/node": "^25.9.3",
     "concurrently": "^10.0.3",
     "lefthook": "^2.1.9",
