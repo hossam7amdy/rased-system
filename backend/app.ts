@@ -1,10 +1,11 @@
 import "./config/env.ts";
 import cors from "cors";
-import type { ErrorRequestHandler, Express } from "express";
+import type { Express } from "express";
 import express, { json, urlencoded } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import type { Server } from "socket.io";
+import { errorHandler } from "./middleware/errorHandler.ts";
 import routes from "./routes/index.ts";
 
 // Build the Express app without binding a port; tests call createApp() with no io.
@@ -37,16 +38,6 @@ export function createApp(io?: Server): Express {
 
   app.use("/api", routes);
 
-  const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
-    console.error("🔥 Server Error:", err);
-    res.status(500).json({
-      success: false,
-      message:
-        process.env.NODE_ENV === "production"
-          ? "Internal Server Error"
-          : (err as Error).message,
-    });
-  };
   app.use(errorHandler);
 
   return app;

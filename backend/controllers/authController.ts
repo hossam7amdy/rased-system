@@ -6,70 +6,59 @@ import type { User } from "../types/models.ts";
 
 const authController = {
   login: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { email, password } = req.body as {
-        email: string;
-        password: string;
-      };
+    const { email, password } = req.body as {
+      email: string;
+      password: string;
+    };
 
-      if (!email || !password) {
-        res.status(400).json({
-          success: false,
-          message: "البريد الإلكتروني وكلمة المرور مطلوبان.",
-        });
-        return;
-      }
-
-      const result = await pool.query<User & { password_hash: string }>(
-        "SELECT * FROM users WHERE email = $1",
-        [email],
-      );
-
-      if (result.rows.length === 0) {
-        res.status(401).json({
-          success: false,
-          message: "بيانات الدخول غير صحيحة.",
-        });
-        return;
-      }
-
-      const user = result.rows[0];
-      if (!user) {
-        res
-          .status(401)
-          .json({ success: false, message: "بيانات الدخول غير صحيحة." });
-        return;
-      }
-      const isValidPassword = await bcrypt.compare(
-        password,
-        user.password_hash,
-      );
-
-      if (!isValidPassword) {
-        res.status(401).json({
-          success: false,
-          message: "بيانات الدخول غير صحيحة.",
-        });
-        return;
-      }
-
-      const accessToken = authMiddleware.generateToken(user);
-      const refreshToken = authMiddleware.generateRefreshToken(user);
-
-      const { password_hash: _, ...userData } = user;
-
-      res.json({
-        success: true,
-        message: "تم تسجيل الدخول بنجاح.",
-        data: { user: userData, accessToken, refreshToken },
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({
+    if (!email || !password) {
+      res.status(400).json({
         success: false,
-        message: "حدث خطأ أثناء تسجيل الدخول.",
+        message: "البريد الإلكتروني وكلمة المرور مطلوبان.",
       });
+      return;
     }
+
+    const result = await pool.query<User & { password_hash: string }>(
+      "SELECT * FROM users WHERE email = $1",
+      [email],
+    );
+
+    if (result.rows.length === 0) {
+      res.status(401).json({
+        success: false,
+        message: "بيانات الدخول غير صحيحة.",
+      });
+      return;
+    }
+
+    const user = result.rows[0];
+    if (!user) {
+      res
+        .status(401)
+        .json({ success: false, message: "بيانات الدخول غير صحيحة." });
+      return;
+    }
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+
+    if (!isValidPassword) {
+      res.status(401).json({
+        success: false,
+        message: "بيانات الدخول غير صحيحة.",
+      });
+      return;
+    }
+
+    const accessToken = authMiddleware.generateToken(user);
+    const refreshToken = authMiddleware.generateRefreshToken(user);
+
+    const { password_hash: _, ...userData } = user;
+
+    res.json({
+      success: true,
+      message: "تم تسجيل الدخول بنجاح.",
+      data: { user: userData, accessToken, refreshToken },
+    });
   },
 
   register: async (req: Request, res: Response): Promise<void> => {
@@ -149,29 +138,21 @@ const authController = {
   },
 
   getProfile: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const userId = req.user!.id;
-      const result = await pool.query<User>(
-        "SELECT id, email, role, full_name, student_id, created_at FROM users WHERE id = $1",
-        [userId],
-      );
+    const userId = req.user!.id;
+    const result = await pool.query<User>(
+      "SELECT id, email, role, full_name, student_id, created_at FROM users WHERE id = $1",
+      [userId],
+    );
 
-      if (result.rows.length === 0) {
-        res.status(404).json({
-          success: false,
-          message: "المستخدم غير موجود.",
-        });
-        return;
-      }
-
-      res.json({ success: true, data: { user: result.rows[0] } });
-    } catch (error) {
-      console.error("Get profile error:", error);
-      res.status(500).json({
+    if (result.rows.length === 0) {
+      res.status(404).json({
         success: false,
-        message: "حدث خطأ أثناء جلب بيانات الملف الشخصي.",
+        message: "المستخدم غير موجود.",
       });
+      return;
     }
+
+    res.json({ success: true, data: { user: result.rows[0] } });
   },
 };
 

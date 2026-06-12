@@ -7,84 +7,60 @@ interface DbError {
 
 const coursesController = {
   getAllStudents: async (_req: Request, res: Response): Promise<void> => {
-    try {
-      const result = await pool.query(
-        `SELECT id, full_name, student_id, email, created_at
+    const result = await pool.query(
+      `SELECT id, full_name, student_id, email, created_at
          FROM users
          WHERE role = 'student'
          ORDER BY full_name ASC`,
-      );
-      res.json({ success: true, data: { students: result.rows } });
-    } catch (error) {
-      console.error("Admin Get Students Error:", error);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء جلب قائمة الطلاب.",
-      });
-    }
+    );
+    res.json({ success: true, data: { students: result.rows } });
   },
 
   getAllCourses: async (_req: Request, res: Response): Promise<void> => {
-    try {
-      const result = await pool.query(
-        `SELECT c.*, u.full_name as professor_name
+    const result = await pool.query(
+      `SELECT c.*, u.full_name as professor_name
          FROM courses c
          JOIN users u ON c.professor_id = u.id
          ORDER BY c.created_at DESC`,
-      );
-      res.json({ success: true, data: { courses: result.rows } });
-    } catch (error) {
-      console.error("Admin Get Courses Error:", error);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء جلب قائمة الكورسات.",
-      });
-    }
+    );
+    res.json({ success: true, data: { courses: result.rows } });
   },
 
   enrollStudentInCourse: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { studentId, courseId } = req.body as {
-        studentId: string;
-        courseId: string;
-      };
+    const { studentId, courseId } = req.body as {
+      studentId: string;
+      courseId: string;
+    };
 
-      if (!studentId || !courseId) {
-        res.status(400).json({
-          success: false,
-          message: "يجب اختيار الطالب والكورس.",
-        });
-        return;
-      }
+    if (!studentId || !courseId) {
+      res.status(400).json({
+        success: false,
+        message: "يجب اختيار الطالب والكورس.",
+      });
+      return;
+    }
 
-      const result = await pool.query(
-        `INSERT INTO enrollments (course_id, student_id)
+    const result = await pool.query(
+      `INSERT INTO enrollments (course_id, student_id)
          VALUES ($1, $2)
          ON CONFLICT (course_id, student_id) DO NOTHING
          RETURNING *`,
-        [courseId, studentId],
-      );
+      [courseId, studentId],
+    );
 
-      if (result.rows.length === 0) {
-        res.status(409).json({
-          success: false,
-          message: "هذا الطالب مسجل بالفعل في هذا الكورس.",
-        });
-        return;
-      }
-
-      res.status(201).json({
-        success: true,
-        message: "تم ربط الطالب بالكورس بنجاح.",
-        data: { enrollment: result.rows[0] },
-      });
-    } catch (error) {
-      console.error("Admin Enrollment Error:", error);
-      res.status(500).json({
+    if (result.rows.length === 0) {
+      res.status(409).json({
         success: false,
-        message: "حدث خطأ أثناء عملية الربط.",
+        message: "هذا الطالب مسجل بالفعل في هذا الكورس.",
       });
+      return;
     }
+
+    res.status(201).json({
+      success: true,
+      message: "تم ربط الطالب بالكورس بنجاح.",
+      data: { enrollment: result.rows[0] },
+    });
   },
 
   createCourse: async (req: Request, res: Response): Promise<void> => {
@@ -128,19 +104,15 @@ const coursesController = {
         return;
       }
 
-      res.status(500).json({
-        success: false,
-        message: "An error occurred while creating the course.",
-      });
+      throw error;
     }
   },
 
   getProfessorCourses: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const professorId = req.user!.id;
+    const professorId = req.user!.id;
 
-      const result = await pool.query(
-        `SELECT c.*,
+    const result = await pool.query(
+      `SELECT c.*,
                 COUNT(DISTINCT e.student_id) as student_count,
                 COUNT(DISTINCT s.id) as session_count
          FROM courses c
@@ -149,94 +121,78 @@ const coursesController = {
          WHERE c.professor_id = $1
          GROUP BY c.id
          ORDER BY c.created_at DESC`,
-        [professorId],
-      );
+      [professorId],
+    );
 
-      res.json({ success: true, data: { courses: result.rows } });
-    } catch (error) {
-      console.error("Get professor courses error:", error);
-      res.status(500).json({
-        success: false,
-        message: "An error occurred while fetching courses.",
-      });
-    }
+    res.json({ success: true, data: { courses: result.rows } });
   },
 
   enrollStudents: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { courseId } = req.params;
-      const { studentIds } = req.body as { studentIds: string[] };
+    const { courseId } = req.params;
+    const { studentIds } = req.body as { studentIds: string[] };
 
-      if (!Array.isArray(studentIds) || studentIds.length === 0) {
-        res.status(400).json({
-          success: false,
-          message: "يجب تحديد طالب واحد على الأقل.",
-        });
-        return;
-      }
+    if (!Array.isArray(studentIds) || studentIds.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: "يجب تحديد طالب واحد على الأقل.",
+      });
+      return;
+    }
 
-      const professorId = req.user!.id;
+    const professorId = req.user!.id;
 
-      const courseCheck = await pool.query(
-        "SELECT id FROM courses WHERE id = $1 AND professor_id = $2",
-        [courseId, professorId],
-      );
+    const courseCheck = await pool.query(
+      "SELECT id FROM courses WHERE id = $1 AND professor_id = $2",
+      [courseId, professorId],
+    );
 
-      if (courseCheck.rows.length === 0) {
-        res.status(403).json({ success: false, message: "Access denied." });
-        return;
-      }
+    if (courseCheck.rows.length === 0) {
+      res.status(403).json({ success: false, message: "Access denied." });
+      return;
+    }
 
-      const enrollmentResults = await Promise.all(
-        studentIds.map(async (studentId) => {
-          try {
-            const result = await pool.query(
-              `INSERT INTO enrollments (course_id, student_id)
+    const enrollmentResults = await Promise.all(
+      studentIds.map(async (studentId) => {
+        try {
+          const result = await pool.query(
+            `INSERT INTO enrollments (course_id, student_id)
                VALUES ($1, $2)
                ON CONFLICT (course_id, student_id) DO NOTHING
                RETURNING *`,
-              [courseId, studentId],
-            );
-            return result.rows[0] ?? null;
-          } catch (error) {
-            console.error(`Failed to enroll student ${studentId}:`, error);
-            return null;
-          }
-        }),
-      );
-      const enrollments = enrollmentResults.filter(Boolean);
+            [courseId, studentId],
+          );
+          return result.rows[0] ?? null;
+        } catch (error) {
+          console.error(`Failed to enroll student ${studentId}:`, error);
+          return null;
+        }
+      }),
+    );
+    const enrollments = enrollmentResults.filter(Boolean);
 
-      res.json({
-        success: true,
-        message: `${enrollments.length} student(s) enrolled successfully.`,
-        data: { enrollments },
-      });
-    } catch (error) {
-      console.error("Enroll students error:", error);
-      res.status(500).json({
-        success: false,
-        message: "An error occurred while enrolling students.",
-      });
-    }
+    res.json({
+      success: true,
+      message: `${enrollments.length} student(s) enrolled successfully.`,
+      data: { enrollments },
+    });
   },
 
   getCourseStudents: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { courseId } = req.params;
-      const professorId = req.user!.id;
+    const { courseId } = req.params;
+    const professorId = req.user!.id;
 
-      const courseCheck = await pool.query(
-        "SELECT id FROM courses WHERE id = $1 AND professor_id = $2",
-        [courseId, professorId],
-      );
+    const courseCheck = await pool.query(
+      "SELECT id FROM courses WHERE id = $1 AND professor_id = $2",
+      [courseId, professorId],
+    );
 
-      if (courseCheck.rows.length === 0) {
-        res.status(403).json({ success: false, message: "Access denied." });
-        return;
-      }
+    if (courseCheck.rows.length === 0) {
+      res.status(403).json({ success: false, message: "Access denied." });
+      return;
+    }
 
-      const result = await pool.query(
-        `SELECT u.id, u.full_name, u.student_id, u.email,
+    const result = await pool.query(
+      `SELECT u.id, u.full_name, u.student_id, u.email,
                 e.enrolled_at,
                 COUNT(DISTINCT s.id) as total_sessions,
                 COUNT(DISTINCT ar.id) as attended_sessions
@@ -247,43 +203,34 @@ const coursesController = {
          WHERE e.course_id = $1
          GROUP BY u.id, e.enrolled_at
          ORDER BY u.full_name`,
-        [courseId],
-      );
+      [courseId],
+    );
 
-      const studentsWithAttendance = result.rows.map((student) => {
-        const totalSessions =
-          parseInt(student.total_sessions as string, 10) || 0;
-        const attendedSessions =
-          parseInt(student.attended_sessions as string, 10) || 0;
-        return {
-          ...student,
-          total_sessions: totalSessions,
-          attended_sessions: attendedSessions,
-          attendance_percentage:
-            totalSessions > 0
-              ? Math.round((attendedSessions / totalSessions) * 100)
-              : 0,
-          is_at_risk:
-            totalSessions > 0 && attendedSessions / totalSessions < 0.25,
-        };
-      });
+    const studentsWithAttendance = result.rows.map((student) => {
+      const totalSessions = parseInt(student.total_sessions as string, 10) || 0;
+      const attendedSessions =
+        parseInt(student.attended_sessions as string, 10) || 0;
+      return {
+        ...student,
+        total_sessions: totalSessions,
+        attended_sessions: attendedSessions,
+        attendance_percentage:
+          totalSessions > 0
+            ? Math.round((attendedSessions / totalSessions) * 100)
+            : 0,
+        is_at_risk:
+          totalSessions > 0 && attendedSessions / totalSessions < 0.25,
+      };
+    });
 
-      res.json({ success: true, data: { students: studentsWithAttendance } });
-    } catch (error) {
-      console.error("Get course students error:", error);
-      res.status(500).json({
-        success: false,
-        message: "An error occurred while fetching students.",
-      });
-    }
+    res.json({ success: true, data: { students: studentsWithAttendance } });
   },
 
   getStudentCourses: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const studentId = req.user!.id;
+    const studentId = req.user!.id;
 
-      const result = await pool.query(
-        `SELECT c.id, c.course_name, c.course_code, u.full_name as professor_name,
+    const result = await pool.query(
+      `SELECT c.id, c.course_name, c.course_code, u.full_name as professor_name,
                   COUNT(DISTINCT s.id) as total_sessions,
                   COUNT(DISTINCT ar.id) as attended_sessions
           FROM enrollments e
@@ -294,125 +241,101 @@ const coursesController = {
           WHERE e.student_id = $1
           GROUP BY c.id, u.full_name, e.enrolled_at
           ORDER BY e.enrolled_at DESC`,
-        [studentId],
-      );
+      [studentId],
+    );
 
-      const coursesWithPercentage = result.rows.map((course) => {
-        const totalSessions =
-          parseInt(course.total_sessions as string, 10) || 0;
-        const attendedSessions =
-          parseInt(course.attended_sessions as string, 10) || 0;
-        return {
-          ...course,
-          total_sessions: totalSessions,
-          attended_sessions: attendedSessions,
-          attendance_percentage:
-            totalSessions > 0
-              ? Math.round((attendedSessions / totalSessions) * 100)
-              : 0,
-        };
-      });
+    const coursesWithPercentage = result.rows.map((course) => {
+      const totalSessions = parseInt(course.total_sessions as string, 10) || 0;
+      const attendedSessions =
+        parseInt(course.attended_sessions as string, 10) || 0;
+      return {
+        ...course,
+        total_sessions: totalSessions,
+        attended_sessions: attendedSessions,
+        attendance_percentage:
+          totalSessions > 0
+            ? Math.round((attendedSessions / totalSessions) * 100)
+            : 0,
+      };
+    });
 
-      res.json({ success: true, courses: coursesWithPercentage });
-    } catch (error) {
-      console.error("🔥 [GET_COURSES_ERROR]:", error);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء جلب قائمة المواد الخاصة بك.",
-      });
-    }
+    res.json({ success: true, courses: coursesWithPercentage });
   },
 
   deleteCourse: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { courseId } = req.params;
-      const professorId = req.user!.id;
+    const { courseId } = req.params;
+    const professorId = req.user!.id;
 
-      const result = await pool.query(
-        "DELETE FROM courses WHERE id = $1 AND professor_id = $2 RETURNING *",
-        [courseId, professorId],
-      );
+    const result = await pool.query(
+      "DELETE FROM courses WHERE id = $1 AND professor_id = $2 RETURNING *",
+      [courseId, professorId],
+    );
 
-      if (result.rows.length === 0) {
-        res.status(404).json({
-          success: false,
-          message: "المادة غير موجودة أو ليس لديك صلاحية لحذفها.",
-        });
-        return;
-      }
-
-      res.json({
-        success: true,
-        message: "تم حذف المادة وجميع البيانات المرتبطة بها بنجاح.",
-      });
-    } catch (error) {
-      console.error("Delete course error:", error);
-      res.status(500).json({
+    if (result.rows.length === 0) {
+      res.status(404).json({
         success: false,
-        message: "حدث خطأ أثناء محاولة الحذف.",
+        message: "المادة غير موجودة أو ليس لديك صلاحية لحذفها.",
       });
+      return;
     }
+
+    res.json({
+      success: true,
+      message: "تم حذف المادة وجميع البيانات المرتبطة بها بنجاح.",
+    });
   },
 
   getCourseDetails: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { courseId } = req.params;
-      const userId = req.user!.id;
-      const userRole = req.user!.role;
+    const { courseId } = req.params;
+    const userId = req.user!.id;
+    const userRole = req.user!.role;
 
-      const courseResult = await pool.query(
-        `SELECT c.*, u.full_name as professor_name
+    const courseResult = await pool.query(
+      `SELECT c.*, u.full_name as professor_name
          FROM courses c
          JOIN users u ON c.professor_id = u.id
          WHERE c.id = $1`,
-        [courseId],
-      );
+      [courseId],
+    );
 
-      if (courseResult.rows.length === 0) {
-        res.status(404).json({ success: false, message: "Course not found." });
-        return;
-      }
-
-      const course = courseResult.rows[0] as Record<string, unknown>;
-
-      if (userRole === "professor" && course["professor_id"] !== userId) {
-        res.status(403).json({ success: false, message: "Access denied." });
-        return;
-      }
-
-      if (userRole === "student") {
-        const enrollmentCheck = await pool.query(
-          "SELECT id FROM enrollments WHERE course_id = $1 AND student_id = $2",
-          [courseId, userId],
-        );
-
-        if (enrollmentCheck.rows.length === 0) {
-          res.status(403).json({
-            success: false,
-            message: "You are not enrolled in this course.",
-          });
-          return;
-        }
-      }
-
-      const studentsResult = await pool.query(
-        "SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1",
-        [courseId],
-      );
-
-      course["enrolled_students"] = parseInt(
-        (studentsResult.rows[0] as { count: string }).count,
-        10,
-      );
-
-      res.json({ success: true, data: { course } });
-    } catch (error) {
-      console.error("Get course details error:", error);
-      res.status(500).json({
-        success: false,
-        message: "An error occurred while fetching course details.",
-      });
+    if (courseResult.rows.length === 0) {
+      res.status(404).json({ success: false, message: "Course not found." });
+      return;
     }
+
+    const course = courseResult.rows[0] as Record<string, unknown>;
+
+    if (userRole === "professor" && course["professor_id"] !== userId) {
+      res.status(403).json({ success: false, message: "Access denied." });
+      return;
+    }
+
+    if (userRole === "student") {
+      const enrollmentCheck = await pool.query(
+        "SELECT id FROM enrollments WHERE course_id = $1 AND student_id = $2",
+        [courseId, userId],
+      );
+
+      if (enrollmentCheck.rows.length === 0) {
+        res.status(403).json({
+          success: false,
+          message: "You are not enrolled in this course.",
+        });
+        return;
+      }
+    }
+
+    const studentsResult = await pool.query(
+      "SELECT COUNT(*) as count FROM enrollments WHERE course_id = $1",
+      [courseId],
+    );
+
+    course["enrolled_students"] = parseInt(
+      (studentsResult.rows[0] as { count: string }).count,
+      10,
+    );
+
+    res.json({ success: true, data: { course } });
   },
 };
 

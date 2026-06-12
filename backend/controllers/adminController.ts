@@ -20,12 +20,11 @@ interface ImportDetail {
 
 const adminController = {
   getAllStudents: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { q = "" } = req.query as { q?: string };
-      const search = `%${q.trim().toLowerCase()}%`;
+    const { q = "" } = req.query as { q?: string };
+    const search = `%${q.trim().toLowerCase()}%`;
 
-      const result = await pool.query(
-        `SELECT id, full_name, student_id, email, created_at
+    const result = await pool.query(
+      `SELECT id, full_name, student_id, email, created_at
            FROM users
           WHERE role = 'student'
             AND (
@@ -36,26 +35,18 @@ const adminController = {
             )
           ORDER BY full_name ASC
           LIMIT 500`,
-        [search],
-      );
+      [search],
+    );
 
-      res.json({ success: true, data: { students: result.rows } });
-    } catch (error) {
-      console.error("[Admin] getAllStudents error:", error);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء جلب قائمة الطلاب.",
-      });
-    }
+    res.json({ success: true, data: { students: result.rows } });
   },
 
   getAllCourses: async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { q = "" } = req.query as { q?: string };
-      const search = `%${q.trim().toLowerCase()}%`;
+    const { q = "" } = req.query as { q?: string };
+    const search = `%${q.trim().toLowerCase()}%`;
 
-      const result = await pool.query(
-        `SELECT c.id, c.course_code, c.course_name, c.semester,
+    const result = await pool.query(
+      `SELECT c.id, c.course_code, c.course_name, c.semester,
                 c.academic_year, c.created_at,
                 u.full_name AS professor_name
            FROM courses c
@@ -66,17 +57,10 @@ const adminController = {
              OR LOWER(u.full_name)   LIKE $1
           ORDER BY c.created_at DESC
           LIMIT 500`,
-        [search],
-      );
+      [search],
+    );
 
-      res.json({ success: true, data: { courses: result.rows } });
-    } catch (error) {
-      console.error("[Admin] getAllCourses error:", error);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء جلب قائمة الكورسات.",
-      });
-    }
+    res.json({ success: true, data: { courses: result.rows } });
   },
 
   enrollBulk: async (req: Request, res: Response): Promise<void> => {
