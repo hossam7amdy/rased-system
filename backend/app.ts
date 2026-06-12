@@ -13,6 +13,7 @@ export function createApp(io?: Server): Express {
   app.set("trust proxy", 1);
 
   app.use(helmet({ contentSecurityPolicy: false }));
+  // TODO: should specify a list of allowed origins
   app.use(cors({ origin: "*", credentials: true }));
   app.use(json());
   app.use(urlencoded({ extended: true }));
