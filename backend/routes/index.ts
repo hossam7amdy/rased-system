@@ -64,9 +64,9 @@ router.get(
 );
 
 router.get("/courses", verifyToken, (req: Request, res: Response) => {
-  if (req.user!.role === "professor") {
+  if (req.user?.role === "professor") {
     return getProfessorCourses(req, res);
-  } else if (req.user!.role === "student") {
+  } else if (req.user?.role === "student") {
     return getStudentCourses(req, res);
   }
   return res.status(403).json({ success: false, message: "Access denied." });
