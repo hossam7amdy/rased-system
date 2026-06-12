@@ -4,7 +4,8 @@ import { networkInterfaces as _networkInterfaces } from "node:os";
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import { createApp } from "./app.ts";
-import { end } from "./config/database.ts";
+import pool from "./config/database.ts";
+import redis from "./config/redis.ts";
 import type { JwtPayload } from "./middleware/auth.ts";
 import { startRotation, stopRotation } from "./services/qrTokenService.ts";
 
@@ -130,8 +131,8 @@ server.listen(PORT, "0.0.0.0", () => {
 
 process.on("SIGINT", () => {
   console.log("🛑 Shutting down server...");
-  server.close(() => {
-    end();
+  server.close(async () => {
+    await Promise.allSettled([redis.close(), pool.end()]);
     process.exit(0);
   });
 });
