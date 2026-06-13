@@ -22,6 +22,8 @@ export interface Config {
   };
   qr: {
     secret: string;
+    rotationMs: number;
+    validityMs: number;
   };
   redis: {
     host: string;
@@ -57,7 +59,11 @@ function toConfig(env: Env): Config {
       expiresIn: env.JWT_EXPIRES_IN,
       refreshExpiresIn: env.JWT_REFRESH_EXPIRES_IN,
     },
-    qr: { secret: env.QR_SECRET },
+    qr: {
+      secret: env.QR_SECRET,
+      rotationMs: env.QR_ROTATION_MS,
+      validityMs: env.QR_VALIDITY_MS,
+    },
     redis,
   };
 }

@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { checkRole, verifyToken } from "../../middleware/auth.ts";
-import { QRTokenService } from "../../services/qrTokenService.ts";
 import { AttendanceService } from "./attendance.service.ts";
 import {
   CreateSessionSchema,
   ManualOverrideSchema,
   ScanQRSchema,
 } from "./attendance.validator.ts";
+import { QRTokenService } from "./qr.service.ts";
 
 const router = Router();
 

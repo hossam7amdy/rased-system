@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import { QRTokenService } from "../services/qrTokenService.ts";
+import { QRTokenService } from "../modules/attendance/qr.service.ts";
 import {
   enroll,
   makeCourse,

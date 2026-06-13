@@ -1,8 +1,4 @@
 import { inject } from "injectus";
-import {
-  QRTokenService,
-  ROTATION_INTERVAL_MS,
-} from "../../services/qrTokenService.ts";
 import { CacheClient } from "../../shared/cache/cache-client.ts";
 import { Database } from "../../shared/database/database.ts";
 import {
@@ -11,7 +7,6 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../../shared/errors.ts";
-import TokenEncryption from "../../utils/tokenEncryption.ts";
 import type {
   ActiveSessionDto,
   CreateSessionDto,
@@ -25,6 +20,7 @@ import type {
   AttendanceRecord,
   AttendanceSession,
 } from "./attendance.model.ts";
+import { QRTokenService } from "./qr.service.ts";
 
 export class AttendanceService {
   private readonly db: Database;
@@ -262,11 +258,7 @@ export class AttendanceService {
       throw new NotFoundError("لا توجد جلسة QR نشطة لهذه المادة.");
     }
 
-    const { t: generatedAt } = TokenEncryption.decrypt(token);
-    const remainingSeconds = Math.max(
-      0,
-      Math.round((ROTATION_INTERVAL_MS - (Date.now() - generatedAt)) / 1000),
-    );
+    const remainingSeconds = this.qrTokenService.remainingSeconds(token);
 
     return { token, remainingSeconds };
   }
