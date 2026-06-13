@@ -14,8 +14,11 @@
     "dev": "node --watch --enable-source-maps --experimental-strip-types server.ts",
     "typecheck": "tsc --noEmit",
     "init-db": "node --experimental-strip-types scripts/init-db.ts",
+    "check:db": "node --experimental-strip-types scripts/check-db.ts",
     "test": "echo \"no unit tests exist.\"; exit 0",
-    "test:int": "node --env-file=.env.test --experimental-strip-types --test --test-timeout=5000 --test-isolation=none --test-concurrency=1 tests/*.test.ts"
+    "test:int": "node --env-file=.env.test --experimental-strip-types --test --test-timeout=5000 --test-isolation=none --test-concurrency=1 tests/*.test.ts",
+    "test:e2e:prep": "node --env-file=.env.e2e --experimental-strip-types scripts/prep-e2e.ts",
+    "test:e2e:server": "node --env-file=.env.e2e --enable-source-maps --experimental-strip-types server.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -11,3 +11,10 @@ pre-commit:
       run: yarn test
     typecheck:
       run: yarn typecheck
+
+pre-push:
+  commands:
+    int-tests:
+      # Preflight fails loud (with the docker command) if Postgres is down;
+      # then run the backend integration suite. Cache is in-memory, no redis.
+      run: yarn workspace backend check:db && yarn workspace backend test:int

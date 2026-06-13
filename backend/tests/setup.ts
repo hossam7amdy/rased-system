@@ -1,9 +1,9 @@
 import { after, before } from "node:test";
 import bcrypt from "bcryptjs";
-import { Pool } from "pg";
 import { createApp } from "../app.ts";
 import type { User } from "../modules/auth/auth.model.ts";
 import { JwtService } from "../modules/auth/jwt.service.ts";
+import { ensureDatabase } from "../scripts/ensure-database.ts";
 import { applySchema } from "../scripts/init-db.ts";
 import { CacheClient } from "../shared/cache/cache-client.ts";
 import { ConfigToken } from "../shared/config/config.ts";
@@ -32,31 +32,6 @@ export const state = {
   sessionId: "",
   creds: { prof: { email: "int-prof@rased.edu", password: PASSWORD } },
 };
-
-// Uses a throwaway pool on the maintenance `postgres` DB — can't CREATE DATABASE
-// while connected to the target, and the shared `db` pool must stay open for applySchema.
-async function ensureDatabase(): Promise<void> {
-  const admin = new Pool({
-    host: config.db.host,
-    port: config.db.port,
-    user: config.db.user,
-    password: config.db.password,
-    database: "postgres",
-  });
-  try {
-    const exists = await admin.query(
-      "SELECT 1 FROM pg_database WHERE datname = $1",
-      [config.db.name],
-    );
-    if (exists.rows.length === 0) {
-      await admin.query(`CREATE DATABASE ${config.db.name}`);
-    }
-  } catch (err) {
-    if ((err as { code?: string }).code !== "42P04") throw err; // duplicate_database
-  } finally {
-    await admin.end();
-  }
-}
 
 async function upsertUser(u: Partial<User>): Promise<User> {
   const hash = await bcrypt.hash(PASSWORD, 10);
@@ -143,7 +118,7 @@ const db = testApp.resolve(Database);
 const cache = testApp.resolve(CacheClient);
 
 before(async () => {
-  await ensureDatabase();
+  await ensureDatabase(config);
   await applySchema(db);
   await cache.connect();
   await cache.clear();

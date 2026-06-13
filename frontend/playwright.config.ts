@@ -14,9 +14,12 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "yarn workspace backend dev",
+      // Isolated backend on the e2e DB (rased_e2e) + in-memory cache. Never
+      // reuse a running dev server — that would hit the dev DB and break
+      // isolation. Prep (schema + bootstrap admin) runs via `yarn test:e2e`.
+      command: "yarn workspace backend test:e2e:server",
       url: "http://localhost:5000/api/health",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 60_000,
       stdout: "pipe",
       stderr: "pipe",

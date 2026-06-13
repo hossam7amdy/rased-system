@@ -7,7 +7,7 @@
     "start": "node --experimental-strip-types backend/server.ts",
     "dev": "concurrently --names 'FE,BE' -c 'cyan,green' 'yarn workspace frontend dev' 'yarn workspace backend dev'",
     "test": "concurrently 'yarn workspace frontend test' 'yarn workspace backend test'",
-    "test:e2e": "yarn workspace frontend test:e2e",
+    "test:e2e": "yarn workspace backend test:e2e:prep && yarn workspace frontend test:e2e",
     "check": "biome check . && prettier --check \"**/*.{md,yml}\"",
     "check:fix": "biome check . --write && prettier --write \"**/*.{md,yml}\"",
     "typecheck": "concurrently 'yarn workspace frontend typecheck' 'yarn workspace backend typecheck'"
