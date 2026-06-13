@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { Request, Response } from "express";
 import pool from "../config/database.ts";
-import authMiddleware from "../middleware/auth.ts";
+import { generateRefreshToken, generateToken } from "../middleware/auth.ts";
 import type { User } from "../types/models.ts";
 
 const authController = {
@@ -49,8 +49,8 @@ const authController = {
       return;
     }
 
-    const accessToken = authMiddleware.generateToken(user);
-    const refreshToken = authMiddleware.generateRefreshToken(user);
+    const accessToken = generateToken(user);
+    const refreshToken = generateRefreshToken(user);
 
     const { password_hash: _, ...userData } = user;
 

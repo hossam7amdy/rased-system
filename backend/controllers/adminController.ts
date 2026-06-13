@@ -1,5 +1,7 @@
 import type { Request, Response } from "express";
 import pool from "../config/database.ts";
+import { withTransaction } from "../shared/database/with-transaction.ts";
+import { BadRequestError, ConflictError } from "../shared/errors.ts";
 
 interface ImportRow {
   rowNum: number;
@@ -63,6 +65,35 @@ const adminController = {
     res.json({ success: true, data: { courses: result.rows } });
   },
 
+  enrollStudentInCourse: async (req: Request, res: Response): Promise<void> => {
+    const { studentId, courseId } = req.body as {
+      studentId: string;
+      courseId: string;
+    };
+
+    if (!studentId || !courseId) {
+      throw new BadRequestError("يجب اختيار الطالب والكورس.");
+    }
+
+    const result = await pool.query(
+      `INSERT INTO enrollments (course_id, student_id)
+           VALUES ($1, $2)
+           ON CONFLICT (course_id, student_id) DO NOTHING
+           RETURNING *`,
+      [courseId, studentId],
+    );
+
+    if (result.rows.length === 0) {
+      throw new ConflictError("هذا الطالب مسجل بالفعل في هذا الكورس.");
+    }
+
+    res.status(201).json({
+      success: true,
+      message: "تم ربط الطالب بالكورس بنجاح.",
+      data: { enrollment: result.rows[0] },
+    });
+  },
+
   enrollBulk: async (req: Request, res: Response): Promise<void> => {
     const { studentIds, courseIds } = req.body as {
       studentIds: string[];
@@ -90,14 +121,11 @@ const adminController = {
       return;
     }
 
-    const client = await pool.connect();
     let enrolled = 0;
     let duplicates = 0;
     let errors = 0;
 
-    try {
-      await client.query("BEGIN");
-
+    await withTransaction(pool, async (client) => {
       for (const studentId of studentIds) {
         for (const courseId of courseIds) {
           try {
@@ -123,26 +151,15 @@ const adminController = {
           }
         }
       }
+    });
 
-      await client.query("COMMIT");
-
-      res.status(201).json({
-        success: true,
-        message: `تمّ الربط: ${enrolled} تسجيل جديد، ${duplicates} مكرر، ${errors} خطأ.`,
-        enrolled,
-        duplicates,
-        errors,
-      });
-    } catch (txErr) {
-      await client.query("ROLLBACK");
-      console.error("[Admin] enrollBulk transaction error:", txErr);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء عملية الربط الجماعي.",
-      });
-    } finally {
-      client.release();
-    }
+    res.status(201).json({
+      success: true,
+      message: `تمّ الربط: ${enrolled} تسجيل جديد، ${duplicates} مكرر، ${errors} خطأ.`,
+      enrolled,
+      duplicates,
+      errors,
+    });
   },
 
   enrollImport: async (req: Request, res: Response): Promise<void> => {
@@ -281,14 +298,11 @@ const adminController = {
       });
     }
 
-    const client = await pool.connect();
     let enrolled = 0;
     let duplicates = 0;
     let errors = 0;
 
-    try {
-      await client.query("BEGIN");
-
+    await withTransaction(pool, async (client) => {
       for (const { courseId, studentId, detail } of toInsert) {
         try {
           const result = await client.query(
@@ -319,31 +333,25 @@ const adminController = {
         }
         details.push(detail);
       }
+    });
 
-      await client.query("COMMIT");
-
-      res.status(201).json({
-        success: true,
-        message: `الاستيراد اكتمل: ${enrolled} جديد، ${duplicates} مكرر، ${errors} خطأ.`,
-        total: rows.length,
-        enrolled,
-        duplicates,
-        errors,
-        details,
-      });
-    } catch (txErr) {
-      await client.query("ROLLBACK");
-      console.error("[Admin] enrollImport transaction error:", txErr);
-      res.status(500).json({
-        success: false,
-        message: "فشل الاستيراد بسبب خطأ في قاعدة البيانات.",
-      });
-    } finally {
-      client.release();
-    }
+    res.status(201).json({
+      success: true,
+      message: `الاستيراد اكتمل: ${enrolled} جديد، ${duplicates} مكرر، ${errors} خطأ.`,
+      total: rows.length,
+      enrolled,
+      duplicates,
+      errors,
+      details,
+    });
   },
 };
 
 export default adminController;
-export const { getAllStudents, getAllCourses, enrollBulk, enrollImport } =
-  adminController;
+export const {
+  getAllStudents,
+  getAllCourses,
+  enrollStudentInCourse,
+  enrollBulk,
+  enrollImport,
+} = adminController;

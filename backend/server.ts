@@ -1,4 +1,3 @@
-import "./config/env.ts";
 import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
 import jwt from "jsonwebtoken";
@@ -8,6 +7,7 @@ import pool from "./config/database.ts";
 import redis from "./config/redis.ts";
 import type { JwtPayload } from "./middleware/auth.ts";
 import { startRotation, stopRotation } from "./services/qrTokenService.ts";
+import { ConfigToken } from "./shared/config/config.ts";
 
 declare module "socket.io" {
   interface Socket {
@@ -29,6 +29,8 @@ const app = createApp(io);
 const server = createServer(app);
 io.attach(server);
 
+const config = app.resolve(ConfigToken);
+
 io.use((socket, next) => {
   const token =
     (socket.handshake.auth as { token?: string }).token ??
@@ -39,10 +41,7 @@ io.use((socket, next) => {
   }
 
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET ?? "rased_super_secret_key_2024_access",
-    ) as JwtPayload;
+    const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
     socket.user = decoded;
     next();
   } catch (error) {
@@ -102,8 +101,6 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = Number(process.env.PORT) || 5000;
-
 const networkInterfaces = _networkInterfaces();
 let localIp = "localhost";
 for (const name in networkInterfaces) {
@@ -115,6 +112,8 @@ for (const name in networkInterfaces) {
     }
   }
 }
+
+const PORT = config.server.port;
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`
@@ -132,7 +131,7 @@ server.listen(PORT, "0.0.0.0", () => {
 process.on("SIGINT", () => {
   console.log("🛑 Shutting down server...");
   server.close(async () => {
-    await Promise.allSettled([redis.close(), pool.end()]);
+    await Promise.allSettled([pool.end(), redis.close(), app.dispose()]);
     process.exit(0);
   });
 });

@@ -1,14 +1,11 @@
 import type { Test } from "supertest";
 import request from "supertest";
-import { createApp } from "../app.ts";
 import { generateToken } from "../middleware/auth.ts";
-import { state } from "./setup.ts";
+import { app, state } from "./setup.ts";
 
 // Re-export so importing helpers registers setup's before/after hooks.
 export { state } from "./setup.ts";
 export { generateToken };
-
-const app = createApp();
 
 type Method = "get" | "post" | "patch" | "delete";
 

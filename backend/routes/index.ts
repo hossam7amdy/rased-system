@@ -4,6 +4,7 @@ import pool from "../config/database.ts";
 import {
   enrollBulk,
   enrollImport,
+  enrollStudentInCourse,
   getAllCourses,
   getAllStudents,
 } from "../controllers/adminController.ts";
@@ -23,17 +24,8 @@ import {
   scanQR,
 } from "../controllers/attendanceController.ts";
 import { getProfile, login, register } from "../controllers/authController.ts";
-import {
-  createCourse,
-  deleteCourse,
-  enrollStudentInCourse,
-  enrollStudents,
-  getCourseDetails,
-  getCourseStudents,
-  getProfessorCourses,
-  getStudentCourses,
-} from "../controllers/coursesController.ts";
 import { checkRole, verifyToken } from "../middleware/auth.ts";
+import coursesRouter from "../modules/courses/courses.router.ts";
 
 const router = Router();
 
@@ -48,43 +40,7 @@ router.post(
 router.get("/auth/profile", verifyToken, getProfile);
 
 // ============ COURSES ROUTES ============
-router.post("/courses", verifyToken, checkRole("professor"), createCourse);
-router.delete(
-  "/courses/:courseId",
-  verifyToken,
-  checkRole("professor"),
-  deleteCourse,
-);
-
-router.get(
-  "/courses/my-courses",
-  verifyToken,
-  checkRole("student"),
-  getStudentCourses,
-);
-
-router.get("/courses", verifyToken, (req: Request, res: Response) => {
-  if (req.user?.role === "professor") {
-    return getProfessorCourses(req, res);
-  } else if (req.user?.role === "student") {
-    return getStudentCourses(req, res);
-  }
-  return res.status(403).json({ success: false, message: "Access denied." });
-});
-
-router.get("/courses/:courseId", verifyToken, getCourseDetails);
-router.post(
-  "/courses/:courseId/enroll",
-  verifyToken,
-  checkRole("professor"),
-  enrollStudents,
-);
-router.get(
-  "/courses/:courseId/students",
-  verifyToken,
-  checkRole("professor"),
-  getCourseStudents,
-);
+router.use(coursesRouter);
 
 // ============ ATTENDANCE ROUTES ============
 router.get(

@@ -1,6 +1,7 @@
 import { after, before } from "node:test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
+import { createApp } from "../app.ts";
 import pool from "../config/database.ts";
 import redis from "../config/redis.ts";
 import { generateToken } from "../middleware/auth.ts";
@@ -15,6 +16,8 @@ if (!isTestDb) {
 }
 
 export const PASSWORD = "int-pass-123";
+
+export const app = createApp();
 
 interface SeededUser {
   id: string;
@@ -154,5 +157,5 @@ after(async () => {
   await pool.query(
     "TRUNCATE attendance_records, attendance_sessions, enrollments, courses, users CASCADE",
   );
-  await Promise.allSettled([pool.end(), redis.close()]);
+  await Promise.allSettled([pool.end(), redis.close(), app.dispose()]);
 });
