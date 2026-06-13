@@ -5,23 +5,16 @@ import {
   getCourseAnalytics,
   getStudentAnalytics,
 } from "../controllers/analyticsController.ts";
-import { getProfile, login, register } from "../controllers/authController.ts";
 import { checkRole, verifyToken } from "../middleware/auth.ts";
 import adminRouter from "../modules/admin/admin.router.ts";
 import attendanceRouter from "../modules/attendance/attendance.router.ts";
+import authRouter from "../modules/auth/auth.router.ts";
 import coursesRouter from "../modules/courses/courses.router.ts";
 
 const router = Router();
 
 // ============ AUTH ROUTES ============
-router.post("/auth/login", login);
-router.post(
-  "/auth/register",
-  verifyToken,
-  checkRole("admin", "professor"),
-  register,
-);
-router.get("/auth/profile", verifyToken, getProfile);
+router.use(authRouter);
 
 // ============ COURSES ROUTES ============
 router.use(coursesRouter);

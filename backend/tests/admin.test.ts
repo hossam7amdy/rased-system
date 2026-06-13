@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
+import { Database } from "../shared/database/database.ts";
 import { makeCourse, makeStudent, req, state, uniq } from "./helpers.ts";
 import {
   AdminCourse,
@@ -13,6 +14,7 @@ import {
   okData,
   okMsgData,
 } from "./schemas.ts";
+import { testApp } from "./setup.ts";
 
 test("GET /admin/users → 200 { users }", async () => {
   const res = await req("get", "/admin/users", { token: state.tok.admin });
@@ -92,7 +94,7 @@ test("POST /admin/enroll-bulk → error envelope for empty arrays", async () => 
 
 test("POST /admin/enroll-import → 201 flat { total, enrolled, details }", async () => {
   const code = uniq("IMP");
-  const courseRes = await state.pool.query<{ id: string }>(
+  const courseRes = await testApp.resolve(Database).query<{ id: string }>(
     `INSERT INTO courses (course_code, course_name, professor_id, semester, academic_year)
      VALUES ($1, $2, $3, 'Fall', '2025-2026') RETURNING id`,
     [code, "Import Course", state.prof.id],

@@ -1,82 +1,67 @@
-import { after, before } from "node:test";
+import { after, before, type HookOptions } from "node:test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import { createApp } from "../app.ts";
-import pool from "../config/database.ts";
-import redis from "../config/redis.ts";
 import { generateToken } from "../middleware/auth.ts";
+import type { User } from "../modules/auth/auth.model.ts";
 import { applySchema } from "../scripts/init-db.ts";
+import { CacheClient } from "../shared/cache/cache-client.ts";
+import { ConfigToken } from "../shared/config/config.ts";
+import { Database } from "../shared/database/database.ts";
 
-const DB_NAME = process.env.DB_NAME ?? "";
-const isTestDb = /^[a-z][a-z0-9_]*$/.test(DB_NAME) && /test/i.test(DB_NAME);
+export const testApp = createApp();
+const appConfig = testApp.resolve(ConfigToken);
+
+const dbConfig = appConfig.db;
+const isTestDb =
+  /^[a-z][a-z0-9_]*$/.test(dbConfig.name) && /test/i.test(dbConfig.name);
 if (!isTestDb) {
   throw new Error(
-    `Refusing to run integration tests: DB_NAME='${DB_NAME}' does not look like a test DB.`,
+    `Refusing to run integration tests: DB_NAME='${dbConfig.name}' does not look like a test DB.`,
   );
 }
 
 export const PASSWORD = "int-pass-123";
 
-export const app = createApp();
-
-interface SeededUser {
-  id: string;
-  email: string;
-  role: "admin" | "professor" | "student";
-  full_name: string;
-  student_id: string | null;
-}
-
 // Shared fixture state, populated by the before() hook below.
 export const state = {
-  pool,
+  state_pool: testApp.resolve(Database),
   tok: { admin: "", prof: "", student: "" },
-  prof: null as unknown as SeededUser,
-  student: null as unknown as SeededUser,
-  admin: null as unknown as SeededUser,
+  prof: null as unknown as User,
+  student: null as unknown as User,
+  admin: null as unknown as User,
   courseId: "",
   sessionId: "",
   creds: { prof: { email: "int-prof@rased.edu", password: PASSWORD } },
 };
 
 async function ensureDatabase(): Promise<void> {
-  const admin = new Pool({
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: "postgres",
-  });
+  const pool = new Pool(dbConfig);
   try {
-    const exists = await admin.query(
+    const exists = await pool.query(
       "SELECT 1 FROM pg_database WHERE datname = $1",
-      [DB_NAME],
+      [dbConfig.name],
     );
     if (exists.rows.length === 0) {
-      await admin.query(`CREATE DATABASE ${DB_NAME}`);
+      await pool.query(`CREATE DATABASE ${dbConfig.name}`);
     }
   } catch (err) {
     if ((err as { code?: string }).code !== "42P04") throw err; // duplicate_database
   } finally {
-    await admin.end();
+    await pool.end();
   }
 }
 
-async function upsertUser(u: {
-  email: string;
-  role: SeededUser["role"];
-  full_name: string;
-  student_id?: string | null;
-}): Promise<SeededUser> {
+async function upsertUser(u: Partial<User>): Promise<User> {
   const hash = await bcrypt.hash(PASSWORD, 10);
-  const res = await pool.query<SeededUser>(
+  const res = await pool.query<User>(
     `INSERT INTO users (email, password_hash, role, full_name, student_id)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
      RETURNING id, email, role, full_name, student_id`,
     [u.email, hash, u.role, u.full_name, u.student_id ?? null],
   );
-  return res.rows[0] as SeededUser;
+  return res.rows[0] as User;
 }
 
 async function seed(): Promise<void> {
@@ -142,20 +127,29 @@ async function seed(): Promise<void> {
     [state.sessionId, state.courseId, state.student.id],
   );
 
-  state.tok.admin = generateToken(state.admin);
-  state.tok.prof = generateToken(state.prof);
-  state.tok.student = generateToken(state.student);
+  const jwtConfig = appConfig.jwt;
+  state.tok.admin = generateToken(state.admin, jwtConfig);
+  state.tok.prof = generateToken(state.prof, jwtConfig);
+  state.tok.student = generateToken(state.student, jwtConfig);
 }
+
+const pool = testApp.resolve(Database);
+const cache = testApp.resolve(CacheClient);
+
+const TEST_OPTIONS: HookOptions = { timeout: 5000 };
 
 before(async () => {
   await ensureDatabase();
   await applySchema(pool);
+  await cache.connect();
+  await cache.clear();
   await seed();
-});
+}, TEST_OPTIONS);
 
 after(async () => {
   await pool.query(
     "TRUNCATE attendance_records, attendance_sessions, enrollments, courses, users CASCADE",
   );
-  await Promise.allSettled([pool.end(), redis.close(), app.dispose()]);
-});
+  await cache.clear();
+  await testApp.dispose();
+}, TEST_OPTIONS);
