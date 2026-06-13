@@ -3,6 +3,7 @@ import { AdminService } from "./modules/admin/admin.service.ts";
 import { AnalyticsService } from "./modules/analytics/analytics.service.ts";
 import { AttendanceService } from "./modules/attendance/attendance.service.ts";
 import { AuthService } from "./modules/auth/auth.service.ts";
+import { JwtService } from "./modules/auth/jwt.service.ts";
 import { CoursesService } from "./modules/courses/courses.service.ts";
 import { QRTokenService } from "./services/qrTokenService.ts";
 import { CacheProvider } from "./shared/cache/cache.provider.ts";
@@ -21,6 +22,7 @@ export function createAppInjector(overrides: Provider[] = []): Injector {
       AttendanceService,
       AnalyticsService,
       AuthService,
+      JwtService,
       QRTokenService,
       ...overrides,
     ],

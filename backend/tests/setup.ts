@@ -2,8 +2,8 @@ import { after, before } from "node:test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import { createApp } from "../app.ts";
-import { generateToken } from "../middleware/auth.ts";
 import type { User } from "../modules/auth/auth.model.ts";
+import { JwtService } from "../modules/auth/jwt.service.ts";
 import { applySchema } from "../scripts/init-db.ts";
 import { CacheClient } from "../shared/cache/cache-client.ts";
 import { ConfigToken } from "../shared/config/config.ts";
@@ -133,10 +133,10 @@ async function seed(): Promise<void> {
     [state.sessionId, state.courseId, state.student.id],
   );
 
-  const jwtConfig = config.jwt;
-  state.tok.admin = generateToken(state.admin, jwtConfig);
-  state.tok.prof = generateToken(state.prof, jwtConfig);
-  state.tok.student = generateToken(state.student, jwtConfig);
+  const jwtService = testApp.resolve(JwtService);
+  state.tok.admin = jwtService.signAccess(state.admin);
+  state.tok.prof = jwtService.signAccess(state.prof);
+  state.tok.student = jwtService.signAccess(state.student);
 }
 
 const db = testApp.resolve(Database);

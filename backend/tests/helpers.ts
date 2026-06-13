@@ -1,8 +1,7 @@
 import type { Test } from "supertest";
 import request from "supertest";
-import { generateToken } from "../middleware/auth.ts";
 import type { User } from "../modules/auth/auth.model.ts";
-import { ConfigToken } from "../shared/config/config.ts";
+import { JwtService } from "../modules/auth/jwt.service.ts";
 import { Database } from "../shared/database/database.ts";
 import { state, testApp } from "./setup.ts";
 
@@ -85,15 +84,11 @@ export async function enroll(
 }
 
 export function tokenFor(row: User): string {
-  const { jwt } = testApp.resolve(ConfigToken);
-  return generateToken(
-    {
-      id: row.id,
-      email: row.email ?? "",
-      role: row.role ?? "student",
-      full_name: row.full_name ?? "",
-      student_id: row.student_id ?? null,
-    },
-    jwt,
-  );
+  return testApp.resolve(JwtService).signAccess({
+    id: row.id,
+    email: row.email ?? "",
+    role: row.role ?? "student",
+    full_name: row.full_name ?? "",
+    student_id: row.student_id ?? null,
+  });
 }

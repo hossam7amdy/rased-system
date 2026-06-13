@@ -1,13 +1,13 @@
 import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
-import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import { createApp } from "./app.ts";
-import type { JwtPayload } from "./middleware/auth.ts";
+import { type JwtPayload, JwtService } from "./modules/auth/jwt.service.ts";
 import { QRTokenService } from "./services/qrTokenService.ts";
 import { CacheClient } from "./shared/cache/cache-client.ts";
 import { ConfigToken } from "./shared/config/config.ts";
 import { Database } from "./shared/database/database.ts";
+import { UnauthorizedError } from "./shared/errors.ts";
 
 declare module "socket.io" {
   interface Socket {
@@ -29,6 +29,7 @@ const app = createApp(io);
 const server = createServer(app);
 
 const config = app.resolve(ConfigToken);
+const jwtService = app.resolve(JwtService);
 const qrTokenService = app.resolve(QRTokenService);
 
 await Promise.all([
@@ -47,12 +48,12 @@ io.attach(server)
     }
 
     try {
-      const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
+      const decoded = jwtService.verify(token);
       socket.user = decoded;
       next();
     } catch (error) {
       console.log("❌ JWT Auth Error Detail:", (error as Error).message);
-      return next(new Error("Invalid authentication token"));
+      return next(new UnauthorizedError("Invalid authentication token"));
     }
   })
   .on("connection", (socket) => {

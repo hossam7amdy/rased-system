@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
-import jwt from "jsonwebtoken";
 import type { UserRole } from "../modules/auth/auth.model.ts";
-import { type Config, ConfigToken } from "../shared/config/config.ts";
+import { type JwtPayload, JwtService } from "../modules/auth/jwt.service.ts";
 
 declare global {
   namespace Express {
@@ -9,18 +8,6 @@ declare global {
       user?: JwtPayload;
     }
   }
-}
-
-export interface JwtPayload {
-  id: string;
-  email: string;
-  role: UserRole;
-  full_name: string;
-  student_id?: string | null;
-}
-
-function isJwtPayload(value: unknown): value is JwtPayload {
-  return typeof value === "object" && value !== null && "id" in value;
 }
 
 export function verifyToken(
@@ -43,13 +30,7 @@ export function verifyToken(
     }
 
     const token = authHeader.substring(7);
-    const { jwt: jwtConfig } = req.resolve(ConfigToken);
-
-    const decoded = jwt.verify(token, jwtConfig.secret);
-    if (!isJwtPayload(decoded)) {
-      res.status(401).json({ success: false, message: "Invalid token." });
-      return;
-    }
+    const decoded = req.resolve(JwtService).verify(token);
 
     req.user = decoded;
     console.log(
@@ -97,34 +78,4 @@ export function checkRole(...allowedRoles: UserRole[]) {
     console.log(`🔓 [ACCESS_GRANTED] Role ${req.user.role} is authorized.`);
     next();
   };
-}
-
-export function generateToken(
-  user: JwtPayload,
-  jwtConfig: Config["jwt"],
-): string {
-  const opts = {
-    expiresIn: jwtConfig.expiresIn,
-  } as unknown as jwt.SignOptions;
-  return jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      full_name: user.full_name,
-      student_id: user.student_id,
-    },
-    jwtConfig.secret,
-    opts,
-  );
-}
-
-export function generateRefreshToken(
-  user: Pick<JwtPayload, "id">,
-  jwtConfig: Config["jwt"],
-): string {
-  const opts = {
-    expiresIn: jwtConfig.refreshExpiresIn,
-  } as unknown as jwt.SignOptions;
-  return jwt.sign({ id: user.id }, jwtConfig.refreshSecret, opts);
 }

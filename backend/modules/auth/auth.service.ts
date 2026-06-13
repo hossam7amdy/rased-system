@@ -1,8 +1,6 @@
 import bcrypt from "bcryptjs";
 import { inject } from "injectus";
 import { DatabaseError } from "pg";
-import { generateRefreshToken, generateToken } from "../../middleware/auth.ts";
-import { type Config, ConfigToken } from "../../shared/config/config.ts";
 import { Database } from "../../shared/database/database.ts";
 import {
   ConflictError,
@@ -11,13 +9,14 @@ import {
 } from "../../shared/errors.ts";
 import type { LoginResult, RegisterDto } from "./auth.dto.ts";
 import type { AuthenticatedUser, User } from "./auth.model.ts";
+import { JwtService } from "./jwt.service.ts";
 
 export class AuthService {
   private readonly db: Database;
-  private readonly config: Config;
-  constructor(db = inject(Database), config = inject(ConfigToken)) {
+  private readonly jwt: JwtService;
+  constructor(db = inject(Database), jwt = inject(JwtService)) {
     this.db = db;
-    this.config = config;
+    this.jwt = jwt;
   }
 
   async login(email: string, password: string): Promise<LoginResult> {
@@ -36,8 +35,8 @@ export class AuthService {
       throw new UnauthorizedError("بيانات الدخول غير صحيحة.");
     }
 
-    const accessToken = generateToken(user, this.config.jwt);
-    const refreshToken = generateRefreshToken(user, this.config.jwt);
+    const accessToken = this.jwt.signAccess(user);
+    const refreshToken = this.jwt.signRefresh(user);
 
     const { password_hash: _password_hash, ...userData } = user;
 
