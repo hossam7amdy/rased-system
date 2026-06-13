@@ -1,31 +1,27 @@
-import type { Request, Response } from "express";
-import pool from "../config/database.ts";
-import { withTransaction } from "../shared/database/with-transaction.ts";
-import { BadRequestError, ConflictError } from "../shared/errors.ts";
+import { inject } from "injectus";
+import { Database } from "../../shared/database/database.ts";
+import { withTransaction } from "../../shared/database/with-transaction.ts";
+import { ConflictError } from "../../shared/errors.ts";
+import type { BulkCounts, ImportResult } from "./admin.dto.ts";
+import type {
+  AdminCourseRow,
+  AdminStudentRow,
+  AdminUserRow,
+  Enrollment,
+  ImportDetail,
+  ImportRow,
+} from "./admin.model.ts";
 
-interface ImportRow {
-  rowNum: number;
-  studentId?: string;
-  studentName?: string;
-  courseCode?: string;
-  courseName?: string;
-}
+export class AdminService {
+  private readonly db;
+  constructor(db = inject(Database)) {
+    this.db = db;
+  }
 
-interface ImportDetail {
-  rowNum: number;
-  studentName: string;
-  studentId: string;
-  courseCode: string;
-  status: string;
-  message: string;
-}
-
-const adminController = {
-  getAllStudents: async (req: Request, res: Response): Promise<void> => {
-    const { q = "" } = req.query as { q?: string };
+  async searchStudents(q: string): Promise<AdminStudentRow[]> {
     const search = `%${q.trim().toLowerCase()}%`;
 
-    const result = await pool.query(
+    const result = await this.db.query(
       `SELECT id, full_name, student_id, email, created_at
            FROM users
           WHERE role = 'student'
@@ -40,14 +36,13 @@ const adminController = {
       [search],
     );
 
-    res.json({ success: true, data: { students: result.rows } });
-  },
+    return result.rows;
+  }
 
-  getAllCourses: async (req: Request, res: Response): Promise<void> => {
-    const { q = "" } = req.query as { q?: string };
+  async searchCourses(q: string): Promise<AdminCourseRow[]> {
     const search = `%${q.trim().toLowerCase()}%`;
 
-    const result = await pool.query(
+    const result = await this.db.query(
       `SELECT c.id, c.course_code, c.course_name, c.semester,
                 c.academic_year, c.created_at,
                 u.full_name AS professor_name
@@ -62,20 +57,19 @@ const adminController = {
       [search],
     );
 
-    res.json({ success: true, data: { courses: result.rows } });
-  },
+    return result.rows;
+  }
 
-  enrollStudentInCourse: async (req: Request, res: Response): Promise<void> => {
-    const { studentId, courseId } = req.body as {
-      studentId: string;
-      courseId: string;
-    };
+  async listUsers(): Promise<AdminUserRow[]> {
+    const result = await this.db.query(
+      "SELECT id, email, role, full_name, student_id, created_at FROM users ORDER BY created_at DESC",
+    );
 
-    if (!studentId || !courseId) {
-      throw new BadRequestError("يجب اختيار الطالب والكورس.");
-    }
+    return result.rows;
+  }
 
-    const result = await pool.query(
+  async enrollOne(studentId: string, courseId: string): Promise<Enrollment> {
+    const result = await this.db.query(
       `INSERT INTO enrollments (course_id, student_id)
            VALUES ($1, $2)
            ON CONFLICT (course_id, student_id) DO NOTHING
@@ -87,45 +81,18 @@ const adminController = {
       throw new ConflictError("هذا الطالب مسجل بالفعل في هذا الكورس.");
     }
 
-    res.status(201).json({
-      success: true,
-      message: "تم ربط الطالب بالكورس بنجاح.",
-      data: { enrollment: result.rows[0] },
-    });
-  },
+    return result.rows[0];
+  }
 
-  enrollBulk: async (req: Request, res: Response): Promise<void> => {
-    const { studentIds, courseIds } = req.body as {
-      studentIds: string[];
-      courseIds: string[];
-    };
-
-    if (
-      !Array.isArray(studentIds) ||
-      studentIds.length === 0 ||
-      !Array.isArray(courseIds) ||
-      courseIds.length === 0
-    ) {
-      res.status(400).json({
-        success: false,
-        message: "يجب تحديد طالب واحد على الأقل ومادة واحدة على الأقل.",
-      });
-      return;
-    }
-
-    if (studentIds.length * courseIds.length > 2000) {
-      res.status(400).json({
-        success: false,
-        message: "عدد التسجيلات المطلوبة كبير جداً. يُرجى تقسيمها على دفعات.",
-      });
-      return;
-    }
-
+  async enrollBulk(
+    studentIds: string[],
+    courseIds: string[],
+  ): Promise<BulkCounts> {
     let enrolled = 0;
     let duplicates = 0;
     let errors = 0;
 
-    await withTransaction(pool, async (client) => {
+    await withTransaction(this.db, async (client) => {
       for (const studentId of studentIds) {
         for (const courseId of courseIds) {
           try {
@@ -153,39 +120,15 @@ const adminController = {
       }
     });
 
-    res.status(201).json({
-      success: true,
-      message: `تمّ الربط: ${enrolled} تسجيل جديد، ${duplicates} مكرر، ${errors} خطأ.`,
-      enrolled,
-      duplicates,
-      errors,
-    });
-  },
+    return { enrolled, duplicates, errors };
+  }
 
-  enrollImport: async (req: Request, res: Response): Promise<void> => {
-    const { rows } = req.body as { rows: ImportRow[] };
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      res.status(400).json({
-        success: false,
-        message: "لا توجد بيانات للاستيراد.",
-      });
-      return;
-    }
-
-    if (rows.length > 5000) {
-      res.status(400).json({
-        success: false,
-        message: "الحد الأقصى للاستيراد الواحد هو 5000 صف.",
-      });
-      return;
-    }
-
+  async enrollImport(rows: ImportRow[]): Promise<ImportResult> {
     const [studentsRes, coursesRes] = await Promise.all([
-      pool.query(
+      this.db.query(
         `SELECT id, student_id, full_name FROM users WHERE role = 'student'`,
       ),
-      pool.query(`SELECT id, course_code, course_name FROM courses`),
+      this.db.query(`SELECT id, course_code, course_name FROM courses`),
     ]);
 
     const studentByUnivId = new Map<string, string>(
@@ -302,7 +245,7 @@ const adminController = {
     let duplicates = 0;
     let errors = 0;
 
-    await withTransaction(pool, async (client) => {
+    await withTransaction(this.db, async (client) => {
       for (const { courseId, studentId, detail } of toInsert) {
         try {
           const result = await client.query(
@@ -335,23 +278,6 @@ const adminController = {
       }
     });
 
-    res.status(201).json({
-      success: true,
-      message: `الاستيراد اكتمل: ${enrolled} جديد، ${duplicates} مكرر، ${errors} خطأ.`,
-      total: rows.length,
-      enrolled,
-      duplicates,
-      errors,
-      details,
-    });
-  },
-};
-
-export default adminController;
-export const {
-  getAllStudents,
-  getAllCourses,
-  enrollStudentInCourse,
-  enrollBulk,
-  enrollImport,
-} = adminController;
+    return { total: rows.length, enrolled, duplicates, errors, details };
+  }
+}

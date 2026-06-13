@@ -1,13 +1,5 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
-import pool from "../config/database.ts";
-import {
-  enrollBulk,
-  enrollImport,
-  enrollStudentInCourse,
-  getAllCourses,
-  getAllStudents,
-} from "../controllers/adminController.ts";
 import {
   exportAttendance,
   getCourseAnalytics,
@@ -25,6 +17,7 @@ import {
 } from "../controllers/attendanceController.ts";
 import { getProfile, login, register } from "../controllers/authController.ts";
 import { checkRole, verifyToken } from "../middleware/auth.ts";
+import adminRouter from "../modules/admin/admin.router.ts";
 import coursesRouter from "../modules/courses/courses.router.ts";
 
 const router = Router();
@@ -41,6 +34,9 @@ router.get("/auth/profile", verifyToken, getProfile);
 
 // ============ COURSES ROUTES ============
 router.use(coursesRouter);
+
+// ============ ADMIN ROUTES ============
+router.use(adminRouter);
 
 // ============ ATTENDANCE ROUTES ============
 router.get(
@@ -107,44 +103,6 @@ router.get(
   verifyToken,
   checkRole("professor"),
   exportAttendance,
-);
-
-// ============ ADMIN ROUTES ============
-router.get(
-  "/admin/users",
-  verifyToken,
-  checkRole("admin"),
-  async (_req: Request, res: Response) => {
-    try {
-      const result = await pool.query(
-        "SELECT id, email, role, full_name, student_id, created_at FROM users ORDER BY created_at DESC",
-      );
-      res.json({ success: true, data: { users: result.rows } });
-    } catch (_error) {
-      res
-        .status(500)
-        .json({ success: false, message: "Error fetching users." });
-    }
-  },
-);
-
-router.get("/admin/students", verifyToken, checkRole("admin"), getAllStudents);
-router.get("/admin/courses", verifyToken, checkRole("admin"), getAllCourses);
-
-router.post(
-  "/admin/enroll",
-  verifyToken,
-  checkRole("admin"),
-  enrollStudentInCourse,
-);
-
-router.post("/admin/enroll-bulk", verifyToken, checkRole("admin"), enrollBulk);
-
-router.post(
-  "/admin/enroll-import",
-  verifyToken,
-  checkRole("admin"),
-  enrollImport,
 );
 
 router.get("/health", (_req: Request, res: Response) => {
