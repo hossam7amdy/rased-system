@@ -6,6 +6,7 @@ import {
   EnrollImportSchema,
   EnrollSchema,
   SearchQuerySchema,
+  UserIdParamSchema,
 } from "./admin.validator.ts";
 
 const router = Router();
@@ -18,6 +19,18 @@ router.get(
     const service = req.resolve(AdminService);
     const users = await service.listUsers();
     return res.json({ success: true, data: { users } });
+  },
+);
+
+router.delete(
+  "/admin/users/:id",
+  verifyToken,
+  checkRole("admin"),
+  async (req, res) => {
+    const { id } = req.validParams(UserIdParamSchema);
+    const service = req.resolve(AdminService);
+    await service.deleteUser(id, req.user!.id);
+    return res.status(204).end();
   },
 );
 

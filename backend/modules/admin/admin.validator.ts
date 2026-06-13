@@ -4,6 +4,10 @@ export const SearchQuerySchema = z.object({
   q: z.string().max(100).optional().default(""),
 });
 
+export const UserIdParamSchema = z.strictObject({
+  id: z.uuid(),
+});
+
 export const EnrollSchema = z.strictObject({
   studentId: z.uuid(),
   courseId: z.uuid(),

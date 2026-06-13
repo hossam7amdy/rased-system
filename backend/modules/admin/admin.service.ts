@@ -1,7 +1,11 @@
 import { inject } from "injectus";
 import { Database } from "../../shared/database/database.ts";
 import { withTransaction } from "../../shared/database/with-transaction.ts";
-import { ConflictError } from "../../shared/errors.ts";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../shared/errors.ts";
 import type { BulkCounts, ImportResult } from "./admin.dto.ts";
 import type {
   AdminCourseRow,
@@ -66,6 +70,35 @@ export class AdminService {
     );
 
     return result.rows;
+  }
+
+  async deleteUser(id: string, requesterId: string): Promise<void> {
+    if (id === requesterId) {
+      throw new ForbiddenError("لا يمكنك حذف حسابك الخاص.");
+    }
+
+    await withTransaction(this.db, async (client) => {
+      const target = await client.query(
+        "SELECT role FROM users WHERE id = $1",
+        [id],
+      );
+
+      if (target.rows.length === 0) {
+        throw new NotFoundError("المستخدم غير موجود.");
+      }
+
+      if (target.rows[0].role === "admin") {
+        const admins = await client.query(
+          "SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'",
+        );
+
+        if (admins.rows[0].count <= 1) {
+          throw new ForbiddenError("لا يمكن حذف آخر مسؤول.");
+        }
+      }
+
+      await client.query("DELETE FROM users WHERE id = $1", [id]);
+    });
   }
 
   async enrollOne(studentId: string, courseId: string): Promise<Enrollment> {
