@@ -1,5 +1,6 @@
 import { Injector, type Provider } from "injectus";
 import { AdminService } from "./modules/admin/admin.service.ts";
+import { AttendanceService } from "./modules/attendance/attendance.service.ts";
 import { CoursesService } from "./modules/courses/courses.service.ts";
 import { CacheProvider } from "./shared/cache/cache.provider.ts";
 import { ConfigProvider } from "./shared/config/config.ts";
@@ -14,6 +15,7 @@ export function createAppInjector(overrides: Provider[] = []): Injector {
       Database,
       CoursesService,
       AdminService,
+      AttendanceService,
       ...overrides,
     ],
   });

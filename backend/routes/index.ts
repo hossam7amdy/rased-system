@@ -5,19 +5,10 @@ import {
   getCourseAnalytics,
   getStudentAnalytics,
 } from "../controllers/analyticsController.ts";
-import {
-  createSession,
-  endSession,
-  getActiveSessions,
-  getCurrentQR,
-  getSessionAttendance,
-  getStudentAttendance,
-  manualOverride,
-  scanQR,
-} from "../controllers/attendanceController.ts";
 import { getProfile, login, register } from "../controllers/authController.ts";
 import { checkRole, verifyToken } from "../middleware/auth.ts";
 import adminRouter from "../modules/admin/admin.router.ts";
+import attendanceRouter from "../modules/attendance/attendance.router.ts";
 import coursesRouter from "../modules/courses/courses.router.ts";
 
 const router = Router();
@@ -39,51 +30,7 @@ router.use(coursesRouter);
 router.use(adminRouter);
 
 // ============ ATTENDANCE ROUTES ============
-router.get(
-  "/attendance/active-sessions",
-  verifyToken,
-  checkRole("student"),
-  getActiveSessions,
-);
-
-router.post(
-  "/attendance/sessions",
-  verifyToken,
-  checkRole("professor"),
-  createSession,
-);
-router.patch(
-  "/attendance/sessions/:sessionId/end",
-  verifyToken,
-  checkRole("professor"),
-  endSession,
-);
-
-router.post("/attendance/scan", verifyToken, checkRole("student"), scanQR);
-
-router.get(
-  "/attendance/current-qr/:courseId",
-  verifyToken,
-  checkRole("professor"),
-  getCurrentQR,
-);
-router.get(
-  "/attendance/sessions/:sessionId",
-  verifyToken,
-  getSessionAttendance,
-);
-router.get(
-  "/attendance/student",
-  verifyToken,
-  checkRole("student"),
-  getStudentAttendance,
-);
-router.post(
-  "/attendance/manual-override",
-  verifyToken,
-  checkRole("professor"),
-  manualOverride,
-);
+router.use(attendanceRouter);
 
 // ============ ANALYTICS ROUTES ============
 router.get(
