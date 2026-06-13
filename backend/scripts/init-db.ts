@@ -1,5 +1,6 @@
-import "../config/env.ts";
 import { Pool, type PoolClient } from "pg";
+import { loadConfig } from "../shared/config/config.ts";
+import { withTransaction } from "../shared/database/with-transaction.ts";
 
 // Idempotent schema. Single DDL source: init-db CLI + test setup.
 export const applySchema = async (client: Pool | PoolClient): Promise<void> => {
@@ -77,29 +78,21 @@ export const applySchema = async (client: Pool | PoolClient): Promise<void> => {
 };
 
 const initDatabase = async (): Promise<void> => {
-  const pool = new Pool({
-    host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT ?? "5432", 10),
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-  });
+  const dbConfig = loadConfig().db;
+  const pool = new Pool(dbConfig);
 
-  let client: PoolClient | null = null;
   try {
-    client = await pool.connect();
     console.log("📊 Connected to PostgreSQL. Starting initialization...");
-    await applySchema(client);
+    await withTransaction(pool, applySchema);
     console.log("✅ Schema applied");
   } catch (error) {
     console.error("❌ Error:", (error as Error).message);
   } finally {
-    if (client) client.release();
     await pool.end();
   }
 };
 
 // Run only when executed directly, not when imported.
 if (process.argv[1] && import.meta.filename === process.argv[1]) {
-  initDatabase();
+  await initDatabase();
 }

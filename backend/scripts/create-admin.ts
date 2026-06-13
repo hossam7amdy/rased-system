@@ -1,17 +1,19 @@
-import "../config/env.ts";
 import bcrypt from "bcryptjs";
 import { Pool, type PoolClient } from "pg";
+import { loadConfig } from "../shared/config/config.ts";
 
 const email = "admin@rased.edu";
 const password = "pass@WORD#123";
 const fullName = "System Administrator";
 
+const { db } = loadConfig();
+
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT ?? "5432", 10),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  host: db.host,
+  port: db.port,
+  database: db.name,
+  user: db.user,
+  password: db.password,
 });
 
 let client: PoolClient | null = null;
