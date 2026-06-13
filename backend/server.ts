@@ -2,8 +2,8 @@ import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
 import { Server } from "socket.io";
 import { createApp } from "./app.ts";
+import { QRTokenService } from "./modules/attendance/qr.service.ts";
 import { type JwtPayload, JwtService } from "./modules/auth/jwt.service.ts";
-import { QRTokenService } from "./services/qrTokenService.ts";
 import { CacheClient } from "./shared/cache/cache-client.ts";
 import { ConfigToken } from "./shared/config/config.ts";
 import { Database } from "./shared/database/database.ts";
@@ -33,7 +33,7 @@ const jwtService = app.resolve(JwtService);
 const qrTokenService = app.resolve(QRTokenService);
 
 await Promise.all([
-  app.resolve(Database).connect(),
+  app.resolve(Database).query("SELECT 1"),
   app.resolve(CacheClient).connect(),
 ]);
 

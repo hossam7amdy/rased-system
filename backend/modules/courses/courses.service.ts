@@ -112,26 +112,17 @@ export class CoursesService {
   ): Promise<Enrollment[]> {
     await this.assertOwnership(courseId, professorId);
 
-    const enrollmentResults = await Promise.all(
-      studentIds.map(async (studentId) => {
-        // Per-student isolation: one failed insert must not fail the batch.
-        try {
-          const result = await this.db.query(
-            `INSERT INTO enrollments (course_id, student_id)
-               VALUES ($1, $2)
-               ON CONFLICT (course_id, student_id) DO NOTHING
-               RETURNING *`,
-            [courseId, studentId],
-          );
-          return result.rows[0] ?? null;
-        } catch (error) {
-          console.error(`Failed to enroll student ${studentId}:`, error);
-          return null;
-        }
-      }),
+    // Single bulk insert via unnest: one connection, atomic, no pool exhaustion.
+    // ON CONFLICT skips already-enrolled students; RETURNING yields only new rows.
+    const result = await this.db.query(
+      `INSERT INTO enrollments (course_id, student_id)
+         SELECT $1::uuid, unnest($2::uuid[])
+         ON CONFLICT (course_id, student_id) DO NOTHING
+         RETURNING *`,
+      [courseId, studentIds],
     );
 
-    return enrollmentResults.filter(Boolean) as Enrollment[];
+    return result.rows as Enrollment[];
   }
 
   async getStudents(
