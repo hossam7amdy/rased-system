@@ -1,4 +1,3 @@
-import "./config/env.ts";
 import cors from "cors";
 import type { Express } from "express";
 import express, { json, urlencoded } from "express";
@@ -11,7 +10,11 @@ import { injectorResolver } from "./middleware/injector-resolver.ts";
 import { ioServer } from "./middleware/io-server.ts";
 import { rateLimiter } from "./middleware/rate-limiter.ts";
 import { zodValidator } from "./middleware/zod-validator.ts";
-import routes from "./routes/index.ts";
+import adminRouter from "./modules/admin/admin.router.ts";
+import analyticsRouter from "./modules/analytics/analytics.router.ts";
+import attendanceRouter from "./modules/attendance/attendance.router.ts";
+import authRouter from "./modules/auth/auth.router.ts";
+import coursesRouter from "./modules/courses/courses.router.ts";
 
 interface Application extends Express {
   resolve: Injector["resolve"];
@@ -45,7 +48,18 @@ export function createApp(
 
   app.use("/api/", rateLimiter());
 
-  app.use("/api", routes);
+  app.use(
+    "/api",
+    authRouter,
+    coursesRouter,
+    adminRouter,
+    attendanceRouter,
+    analyticsRouter,
+  );
+
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   app.use(errorHandler);
 

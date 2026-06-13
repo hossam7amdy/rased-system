@@ -16,7 +16,7 @@ import type {
 import type { Course, Enrollment } from "./course.model.ts";
 
 export class CoursesService {
-  private readonly db;
+  private readonly db: Database;
   constructor(db = inject(Database)) {
     this.db = db;
   }
@@ -218,6 +218,19 @@ export class CoursesService {
     );
 
     return course as unknown as CourseDetailDto;
+  }
+
+  async getOwnedCourse(courseId: string, professorId: string): Promise<Course> {
+    const result = await this.db.query(
+      "SELECT * FROM courses WHERE id = $1 AND professor_id = $2",
+      [courseId, professorId],
+    );
+
+    if (result.rows.length === 0) {
+      throw new ForbiddenError("Access denied.");
+    }
+
+    return result.rows[0];
   }
 
   private async assertOwnership(
