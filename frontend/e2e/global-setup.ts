@@ -1,9 +1,9 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type FullConfig } from "@playwright/test";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export const FRONTEND =
   process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000";
@@ -12,7 +12,7 @@ export const API_BASE =
 
 const ADMIN = {
   email: process.env.E2E_ADMIN_EMAIL ?? "admin@rased.edu",
-  password: process.env.E2E_ADMIN_PASSWORD ?? "admin123",
+  password: process.env.E2E_ADMIN_PASSWORD ?? "pass@WORD#123",
   path: "/admin",
 };
 
@@ -80,8 +80,7 @@ async function login(email: string, password: string): Promise<string> {
   if (!res.ok || !token) {
     throw new Error(
       `Login failed for ${email} (HTTP ${res.status}). ` +
-        `If this is the bootstrap admin, run \`yarn workspace backend init-db\` ` +
-        `to provision the schema and admin account, and make sure the backend ` +
+        `If this is the bootstrap admin, make sure the backend ` +
         `is running at ${API_BASE}.`,
     );
   }
@@ -215,27 +214,27 @@ export default async function globalSetup(_config: FullConfig) {
   await ensureEnrollment(adminToken, studentDbId, courseId);
 
   // 4. Save browser storage states (JWT in localStorage) for each role.
-  const authDir = path.join(__dirname, ".auth");
-  fs.mkdirSync(authDir, { recursive: true });
+  const authDir = join(__dirname, ".auth");
+  mkdirSync(authDir, { recursive: true });
 
   await Promise.all([
     saveAuthState(
       CREDS.admin.email,
       CREDS.admin.password,
       CREDS.admin.path,
-      path.join(authDir, "admin.json"),
+      join(authDir, "admin.json"),
     ),
     saveAuthState(
       CREDS.professor.email,
       CREDS.professor.password,
       CREDS.professor.path,
-      path.join(authDir, "professor.json"),
+      join(authDir, "professor.json"),
     ),
     saveAuthState(
       CREDS.student.email,
       CREDS.student.password,
       CREDS.student.path,
-      path.join(authDir, "student.json"),
+      join(authDir, "student.json"),
     ),
   ]);
 }
