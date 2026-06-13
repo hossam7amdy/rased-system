@@ -72,6 +72,15 @@ export const coursesApi = {
     semester: string;
     academicYear: string;
   }) => payload<{ course: Course }>(client.post("/courses", input)),
+  update: (
+    courseId: number,
+    input: {
+      courseCode: string;
+      courseName: string;
+      semester: string;
+      academicYear: string;
+    },
+  ) => payload<{ course: Course }>(client.patch(`/courses/${courseId}`, input)),
   remove: (courseId: number) =>
     payload<unknown>(client.delete(`/courses/${courseId}`)),
 };

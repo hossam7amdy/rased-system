@@ -1,7 +1,11 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
 import { checkRole, verifyToken } from "../../middleware/auth.ts";
-import { CreateCourseSchema, EnrollSchema } from "./course.validator.ts";
+import {
+  CreateCourseSchema,
+  EnrollSchema,
+  UpdateCourseSchema,
+} from "./course.validator.ts";
 import { CoursesService } from "./courses.service.ts";
 
 const router = Router();
@@ -18,6 +22,24 @@ router.post(
     return res.status(201).json({
       success: true,
       message: "Course created successfully.",
+      data: { course },
+    });
+  },
+);
+
+router.patch(
+  "/courses/:courseId",
+  verifyToken,
+  checkRole("professor"),
+  async (req, res) => {
+    const { courseId } = req.params as { courseId: string };
+    const professorId = req.user!.id;
+    const payload = req.validBody(UpdateCourseSchema);
+    const service = req.resolve(CoursesService);
+    const course = await service.update(courseId, professorId, payload);
+    return res.json({
+      success: true,
+      message: "تم تحديث المادة بنجاح.",
       data: { course },
     });
   },

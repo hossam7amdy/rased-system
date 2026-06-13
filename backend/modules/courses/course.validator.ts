@@ -7,6 +7,11 @@ export const CreateCourseSchema = z.strictObject({
   academicYear: z.string().min(4).max(10),
 });
 
+export const UpdateCourseSchema = CreateCourseSchema.partial().refine(
+  (value) => Object.keys(value).length > 0,
+  { message: "يجب توفير حقل واحد على الأقل للتحديث." },
+);
+
 export const EnrollSchema = z.strictObject({
   studentIds: z
     .array(z.uuid())

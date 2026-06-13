@@ -12,6 +12,7 @@ import type {
   CreateCourseDto,
   ProfessorCourseDto,
   StudentCourseDto,
+  UpdateCourseDto,
 } from "./course.dto.ts";
 import type { Course, Enrollment } from "./course.model.ts";
 
@@ -35,6 +36,45 @@ export class CoursesService {
           input.academicYear,
         ],
       );
+
+      return result.rows[0];
+    } catch (error) {
+      if (error instanceof DatabaseError && error.code === "23505") {
+        throw new ConflictError("Course code already exists.");
+      }
+      throw error;
+    }
+  }
+
+  async update(
+    courseId: string,
+    professorId: string,
+    input: UpdateCourseDto,
+  ): Promise<Course> {
+    try {
+      const result = await this.db.query(
+        `UPDATE courses SET
+           course_code = COALESCE($3, course_code),
+           course_name = COALESCE($4, course_name),
+           semester = COALESCE($5, semester),
+           academic_year = COALESCE($6, academic_year)
+         WHERE id = $1 AND professor_id = $2
+         RETURNING *`,
+        [
+          courseId,
+          professorId,
+          input.courseCode ?? null,
+          input.courseName ?? null,
+          input.semester ?? null,
+          input.academicYear ?? null,
+        ],
+      );
+
+      if (result.rows.length === 0) {
+        throw new NotFoundError(
+          "المادة غير موجودة أو ليس لديك صلاحية لتعديلها.",
+        );
+      }
 
       return result.rows[0];
     } catch (error) {

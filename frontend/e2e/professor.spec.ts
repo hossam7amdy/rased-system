@@ -7,6 +7,13 @@ const course = {
   name: `E2E Course ${uid}`,
 };
 
+const editUid = crypto.randomUUID().slice(0, 7);
+const editCourse = {
+  code: `E${editUid}`,
+  name: `E2E Edit ${editUid}`,
+};
+const updatedName = `E2E Edited ${editUid}`;
+
 test.describe("Professor dashboard", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/professor");
@@ -32,6 +39,29 @@ test.describe("Professor dashboard", () => {
     await page.locator('form button[type="submit"]').click();
     // Wait for the course card to appear — the modal closes on success
     await expect(page.getByText(course.name)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test("edits a course", async ({ page }) => {
+    // Create a course to edit (self-contained, newest → first card)
+    await page.getByRole("button", { name: /مادة جديدة/ }).click();
+    await page.waitForSelector("form", { state: "visible" });
+    await page.locator("#course-name").pressSequentially(editCourse.name);
+    await page.locator("#course-code").pressSequentially(editCourse.code);
+    await page.locator('form button[type="submit"]').click();
+    await expect(page.getByText(editCourse.name)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // Open edit modal on the newest card; name input is prefilled
+    await page.getByRole("button", { name: "تعديل المادة" }).first().click();
+    await page.waitForSelector("form", { state: "visible" });
+    const nameInput = page.locator("#course-name");
+    await expect(nameInput).toHaveValue(editCourse.name);
+
+    // Rename and save
+    await nameInput.fill(updatedName);
+    await page.locator('form button[type="submit"]').click();
+    await expect(page.getByText(updatedName)).toBeVisible({ timeout: 10_000 });
   });
 
   test("starts an attendance QR session", async ({ page }) => {

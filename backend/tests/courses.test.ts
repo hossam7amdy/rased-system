@@ -193,6 +193,57 @@ test("GET /courses/:id/students → error envelope for non-owner professor", asy
   Err.parse(res.body);
 });
 
+test("PATCH /courses/:id → 200 { course }", async () => {
+  const courseId = await makeCourse();
+  const res = await req("patch", `/courses/${courseId}`, {
+    token: state.tok.prof,
+    body: { courseName: "Renamed Course", semester: "Spring" },
+  });
+  assert.equal(res.status, 200);
+  okMsgData(z.strictObject({ course: CourseRow })).parse(res.body);
+});
+
+test("PATCH /courses/:id → error envelope for empty body", async () => {
+  const res = await req("patch", `/courses/${state.courseId}`, {
+    token: state.tok.prof,
+    body: {},
+  });
+  assert.ok(res.status >= 400);
+  Err.parse(res.body);
+});
+
+test("PATCH /courses/:id → error envelope for non-owner professor", async () => {
+  const other = await makeProfessor();
+  const courseId = await makeCourse(other.id);
+  const res = await req("patch", `/courses/${courseId}`, {
+    token: state.tok.prof,
+    body: { courseName: "Hijack" },
+  });
+  assert.ok(res.status >= 400);
+  Err.parse(res.body);
+});
+
+test("PATCH /courses/:id → error envelope for duplicate course code", async () => {
+  const takenCode = uniq("DUP");
+  const created = await req("post", "/courses", {
+    token: state.tok.prof,
+    body: {
+      courseCode: takenCode,
+      courseName: "Holder",
+      semester: "Fall",
+      academicYear: "2025-2026",
+    },
+  });
+  assert.equal(created.status, 201);
+  const courseId = await makeCourse();
+  const res = await req("patch", `/courses/${courseId}`, {
+    token: state.tok.prof,
+    body: { courseCode: takenCode },
+  });
+  assert.ok(res.status >= 400);
+  Err.parse(res.body);
+});
+
 test("DELETE /courses/:id → 200 { success, message }", async () => {
   const courseId = await makeCourse();
   const res = await req("delete", `/courses/${courseId}`, {
