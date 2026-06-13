@@ -5,28 +5,29 @@ import {
   randomBytes,
   scryptSync,
 } from "node:crypto";
+import { inject } from "injectus";
+import { ConfigToken } from "../../shared/config/config.ts";
 
-const DEFAULT_QR_SECRET = "rased_super_secret_key_2024_qr_signing";
-
+const QR_SALT = "rased_qr_salt";
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
-
-const KEY = scryptSync(
-  process.env.QR_SECRET ?? DEFAULT_QR_SECRET,
-  "rased_qr_salt",
-  32,
-);
 
 export interface TokenData {
   sId: string;
   t: number;
 }
 
-const TokenEncryption = {
+export class QrCrypto {
+  private readonly key: Buffer;
+
+  constructor(config = inject(ConfigToken)) {
+    this.key = scryptSync(config.qr.secret, QR_SALT, 32);
+  }
+
   encrypt(data: TokenData): string {
     try {
       const iv = randomBytes(IV_LENGTH);
-      const cipher = createCipheriv(ALGORITHM, KEY, iv);
+      const cipher = createCipheriv(ALGORITHM, this.key, iv);
 
       const json = JSON.stringify(data);
       const encrypted = Buffer.concat([
@@ -40,7 +41,7 @@ const TokenEncryption = {
       console.error("Encryption error:", error);
       throw new Error("Token processing failed");
     }
-  },
+  }
 
   decrypt(encryptedToken: string): TokenData {
     const parts = encryptedToken.split(":");
@@ -51,7 +52,7 @@ const TokenEncryption = {
     const [ivHex, authTagHex, dataHex] = parts as [string, string, string];
     const decipher = createDecipheriv(
       ALGORITHM,
-      KEY,
+      this.key,
       Buffer.from(ivHex, "hex"),
     );
     decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
@@ -62,15 +63,9 @@ const TokenEncryption = {
     ]);
 
     return JSON.parse(decrypted.toString("utf8")) as TokenData;
-  },
+  }
 
   hash(token: string): string {
     return createHash("sha256").update(token).digest("hex");
-  },
-
-  generateSalt(): string {
-    return randomBytes(16).toString("hex");
-  },
-};
-
-export default TokenEncryption;
+  }
+}

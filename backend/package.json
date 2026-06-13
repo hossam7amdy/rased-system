@@ -14,8 +14,8 @@
     "dev": "node --watch --enable-source-maps --experimental-strip-types server.ts",
     "typecheck": "tsc --noEmit",
     "init-db": "node --experimental-strip-types scripts/init-db.ts",
-    "test": "echo \"no tests yet!\"; exit 0",
-    "test:int": "node --env-file=.env.test --experimental-strip-types --test --test-concurrency=1 tests/*.test.ts"
+    "test": "echo \"no unit tests exist.\"; exit 0",
+    "test:int": "node --env-file=.env.test --experimental-strip-types --test --test-timeout=5000 --test-isolation=none --test-concurrency=1 tests/*.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -24,10 +24,12 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
+    "injectus": "^0.2.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3",
     "redis": "^6.0.0",
-    "socket.io": "^4.6.1"
+    "socket.io": "^4.6.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
@@ -36,8 +38,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/pg": "^8.11.0",
     "@types/supertest": "^7.2.0",
-    "supertest": "^7.2.2",
-    "zod": "^4.4.3"
+    "supertest": "^7.2.2"
   },
   "packageManager": "yarn@1.22.22"
 }

@@ -1,29 +1,27 @@
-import type { Request, Response } from "express";
-import pool from "../config/database.ts";
+import { inject } from "injectus";
+import { Database } from "../../shared/database/database.ts";
+import { withTransaction } from "../../shared/database/with-transaction.ts";
+import { ConflictError } from "../../shared/errors.ts";
+import type { BulkCounts, ImportResult } from "./admin.dto.ts";
+import type {
+  AdminCourseRow,
+  AdminStudentRow,
+  AdminUserRow,
+  Enrollment,
+  ImportDetail,
+  ImportRow,
+} from "./admin.model.ts";
 
-interface ImportRow {
-  rowNum: number;
-  studentId?: string;
-  studentName?: string;
-  courseCode?: string;
-  courseName?: string;
-}
+export class AdminService {
+  private readonly db;
+  constructor(db = inject(Database)) {
+    this.db = db;
+  }
 
-interface ImportDetail {
-  rowNum: number;
-  studentName: string;
-  studentId: string;
-  courseCode: string;
-  status: string;
-  message: string;
-}
-
-const adminController = {
-  getAllStudents: async (req: Request, res: Response): Promise<void> => {
-    const { q = "" } = req.query as { q?: string };
+  async searchStudents(q: string): Promise<AdminStudentRow[]> {
     const search = `%${q.trim().toLowerCase()}%`;
 
-    const result = await pool.query(
+    const result = await this.db.query(
       `SELECT id, full_name, student_id, email, created_at
            FROM users
           WHERE role = 'student'
@@ -38,14 +36,13 @@ const adminController = {
       [search],
     );
 
-    res.json({ success: true, data: { students: result.rows } });
-  },
+    return result.rows;
+  }
 
-  getAllCourses: async (req: Request, res: Response): Promise<void> => {
-    const { q = "" } = req.query as { q?: string };
+  async searchCourses(q: string): Promise<AdminCourseRow[]> {
     const search = `%${q.trim().toLowerCase()}%`;
 
-    const result = await pool.query(
+    const result = await this.db.query(
       `SELECT c.id, c.course_code, c.course_name, c.semester,
                 c.academic_year, c.created_at,
                 u.full_name AS professor_name
@@ -60,44 +57,42 @@ const adminController = {
       [search],
     );
 
-    res.json({ success: true, data: { courses: result.rows } });
-  },
+    return result.rows;
+  }
 
-  enrollBulk: async (req: Request, res: Response): Promise<void> => {
-    const { studentIds, courseIds } = req.body as {
-      studentIds: string[];
-      courseIds: string[];
-    };
+  async listUsers(): Promise<AdminUserRow[]> {
+    const result = await this.db.query(
+      "SELECT id, email, role, full_name, student_id, created_at FROM users ORDER BY created_at DESC",
+    );
 
-    if (
-      !Array.isArray(studentIds) ||
-      studentIds.length === 0 ||
-      !Array.isArray(courseIds) ||
-      courseIds.length === 0
-    ) {
-      res.status(400).json({
-        success: false,
-        message: "يجب تحديد طالب واحد على الأقل ومادة واحدة على الأقل.",
-      });
-      return;
+    return result.rows;
+  }
+
+  async enrollOne(studentId: string, courseId: string): Promise<Enrollment> {
+    const result = await this.db.query(
+      `INSERT INTO enrollments (course_id, student_id)
+           VALUES ($1, $2)
+           ON CONFLICT (course_id, student_id) DO NOTHING
+           RETURNING *`,
+      [courseId, studentId],
+    );
+
+    if (result.rows.length === 0) {
+      throw new ConflictError("هذا الطالب مسجل بالفعل في هذا الكورس.");
     }
 
-    if (studentIds.length * courseIds.length > 2000) {
-      res.status(400).json({
-        success: false,
-        message: "عدد التسجيلات المطلوبة كبير جداً. يُرجى تقسيمها على دفعات.",
-      });
-      return;
-    }
+    return result.rows[0];
+  }
 
-    const client = await pool.connect();
+  async enrollBulk(
+    studentIds: string[],
+    courseIds: string[],
+  ): Promise<BulkCounts> {
     let enrolled = 0;
     let duplicates = 0;
     let errors = 0;
 
-    try {
-      await client.query("BEGIN");
-
+    await withTransaction(this.db, async (client) => {
       for (const studentId of studentIds) {
         for (const courseId of courseIds) {
           try {
@@ -123,52 +118,17 @@ const adminController = {
           }
         }
       }
+    });
 
-      await client.query("COMMIT");
+    return { enrolled, duplicates, errors };
+  }
 
-      res.status(201).json({
-        success: true,
-        message: `تمّ الربط: ${enrolled} تسجيل جديد، ${duplicates} مكرر، ${errors} خطأ.`,
-        enrolled,
-        duplicates,
-        errors,
-      });
-    } catch (txErr) {
-      await client.query("ROLLBACK");
-      console.error("[Admin] enrollBulk transaction error:", txErr);
-      res.status(500).json({
-        success: false,
-        message: "حدث خطأ أثناء عملية الربط الجماعي.",
-      });
-    } finally {
-      client.release();
-    }
-  },
-
-  enrollImport: async (req: Request, res: Response): Promise<void> => {
-    const { rows } = req.body as { rows: ImportRow[] };
-
-    if (!Array.isArray(rows) || rows.length === 0) {
-      res.status(400).json({
-        success: false,
-        message: "لا توجد بيانات للاستيراد.",
-      });
-      return;
-    }
-
-    if (rows.length > 5000) {
-      res.status(400).json({
-        success: false,
-        message: "الحد الأقصى للاستيراد الواحد هو 5000 صف.",
-      });
-      return;
-    }
-
+  async enrollImport(rows: ImportRow[]): Promise<ImportResult> {
     const [studentsRes, coursesRes] = await Promise.all([
-      pool.query(
+      this.db.query(
         `SELECT id, student_id, full_name FROM users WHERE role = 'student'`,
       ),
-      pool.query(`SELECT id, course_code, course_name FROM courses`),
+      this.db.query(`SELECT id, course_code, course_name FROM courses`),
     ]);
 
     const studentByUnivId = new Map<string, string>(
@@ -281,14 +241,11 @@ const adminController = {
       });
     }
 
-    const client = await pool.connect();
     let enrolled = 0;
     let duplicates = 0;
     let errors = 0;
 
-    try {
-      await client.query("BEGIN");
-
+    await withTransaction(this.db, async (client) => {
       for (const { courseId, studentId, detail } of toInsert) {
         try {
           const result = await client.query(
@@ -319,31 +276,8 @@ const adminController = {
         }
         details.push(detail);
       }
+    });
 
-      await client.query("COMMIT");
-
-      res.status(201).json({
-        success: true,
-        message: `الاستيراد اكتمل: ${enrolled} جديد، ${duplicates} مكرر، ${errors} خطأ.`,
-        total: rows.length,
-        enrolled,
-        duplicates,
-        errors,
-        details,
-      });
-    } catch (txErr) {
-      await client.query("ROLLBACK");
-      console.error("[Admin] enrollImport transaction error:", txErr);
-      res.status(500).json({
-        success: false,
-        message: "فشل الاستيراد بسبب خطأ في قاعدة البيانات.",
-      });
-    } finally {
-      client.release();
-    }
-  },
-};
-
-export default adminController;
-export const { getAllStudents, getAllCourses, enrollBulk, enrollImport } =
-  adminController;
+    return { total: rows.length, enrolled, duplicates, errors, details };
+  }
+}

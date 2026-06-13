@@ -1,13 +1,13 @@
-import "./config/env.ts";
 import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
-import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import { createApp } from "./app.ts";
-import pool from "./config/database.ts";
-import redis from "./config/redis.ts";
-import type { JwtPayload } from "./middleware/auth.ts";
-import { startRotation, stopRotation } from "./services/qrTokenService.ts";
+import { QRTokenService } from "./modules/attendance/qr.service.ts";
+import { type JwtPayload, JwtService } from "./modules/auth/jwt.service.ts";
+import { CacheClient } from "./shared/cache/cache-client.ts";
+import { ConfigToken } from "./shared/config/config.ts";
+import { Database } from "./shared/database/database.ts";
+import { UnauthorizedError } from "./shared/errors.ts";
 
 declare module "socket.io" {
   interface Socket {
@@ -27,82 +27,85 @@ const io = new Server({
 
 const app = createApp(io);
 const server = createServer(app);
-io.attach(server);
 
-io.use((socket, next) => {
-  const token =
-    (socket.handshake.auth as { token?: string }).token ??
-    (socket.handshake.headers["token"] as string | undefined);
+const config = app.resolve(ConfigToken);
+const jwtService = app.resolve(JwtService);
+const qrTokenService = app.resolve(QRTokenService);
 
-  if (!token) {
-    return next(new Error("Authentication token required"));
-  }
+await Promise.all([
+  app.resolve(Database).query("SELECT 1"),
+  app.resolve(CacheClient).connect(),
+]);
 
-  try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET ?? "rased_super_secret_key_2024_access",
-    ) as JwtPayload;
-    socket.user = decoded;
-    next();
-  } catch (error) {
-    console.log("❌ JWT Auth Error Detail:", (error as Error).message);
-    return next(new Error("Invalid authentication token"));
-  }
-});
+io.attach(server)
+  .use((socket, next) => {
+    const token =
+      (socket.handshake.auth as { token?: string }).token ??
+      (socket.handshake.headers["token"] as string | undefined);
 
-io.on("connection", (socket) => {
-  console.log(
-    `✅ User connected: ${socket.user.email} | Socket ID: ${socket.id}`,
-  );
-
-  socket.on("start_attendance", async (courseId: unknown) => {
-    try {
-      if (!courseId) {
-        console.error("❌ Error: courseId is undefined or null");
-        socket.emit("error", { message: "معرف المادة غير صالح." });
-        return;
-      }
-
-      const roomId = String(courseId);
-
-      console.log(
-        `🎯 [ROOM_JOIN] Professor ${socket.user.email} joining EXACT room: "${roomId}"`,
-      );
-
-      socket.join(roomId);
-      startRotation(roomId, io);
-
-      socket.emit("session_started", {
-        courseId: roomId,
-        message: "QR rotation active.",
-      });
-    } catch (error) {
-      console.error("🔥 Socket Error (start_attendance):", error);
-      socket.emit("error", { message: "Failed to start QR session." });
+    if (!token) {
+      return next(new Error("Authentication token required"));
     }
-  });
 
-  socket.on("stop_attendance", (courseId: unknown) => {
     try {
-      if (!courseId) return;
-      const roomId = String(courseId);
-      stopRotation(roomId);
-      socket.leave(roomId);
-      console.log(`⏹️ Session stopped for room: "${roomId}"`);
+      const decoded = jwtService.verify(token);
+      socket.user = decoded;
+      next();
     } catch (error) {
-      console.error("Stop session error:", error);
+      console.log("❌ JWT Auth Error Detail:", (error as Error).message);
+      return next(new UnauthorizedError("Invalid authentication token"));
     }
-  });
-
-  socket.on("disconnect", () => {
+  })
+  .on("connection", (socket) => {
     console.log(
-      `❌ User disconnected: ${socket.user.email} | Socket ID: ${socket.id}`,
+      `✅ User connected: ${socket.user.email} | Socket ID: ${socket.id}`,
     );
-  });
-});
 
-const PORT = Number(process.env.PORT) || 5000;
+    socket.on("start_attendance", async (courseId: unknown) => {
+      try {
+        if (!courseId) {
+          console.error("❌ Error: courseId is undefined or null");
+          socket.emit("error", { message: "معرف المادة غير صالح." });
+          return;
+        }
+
+        const roomId = String(courseId);
+
+        console.log(
+          `🎯 [ROOM_JOIN] Professor ${socket.user.email} joining EXACT room: "${roomId}"`,
+        );
+
+        socket.join(roomId);
+        qrTokenService.startRotation(roomId, io);
+
+        socket.emit("session_started", {
+          courseId: roomId,
+          message: "QR rotation active.",
+        });
+      } catch (error) {
+        console.error("🔥 Socket Error (start_attendance):", error);
+        socket.emit("error", { message: "Failed to start QR session." });
+      }
+    });
+
+    socket.on("stop_attendance", (courseId: unknown) => {
+      try {
+        if (!courseId) return;
+        const roomId = String(courseId);
+        qrTokenService.stopRotation(roomId);
+        socket.leave(roomId);
+        console.log(`⏹️ Session stopped for room: "${roomId}"`);
+      } catch (error) {
+        console.error("Stop session error:", error);
+      }
+    });
+
+    socket.on("disconnect", () => {
+      console.log(
+        `❌ User disconnected: ${socket.user.email} | Socket ID: ${socket.id}`,
+      );
+    });
+  });
 
 const networkInterfaces = _networkInterfaces();
 let localIp = "localhost";
@@ -115,6 +118,8 @@ for (const name in networkInterfaces) {
     }
   }
 }
+
+const PORT = config.server.port;
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`
@@ -132,7 +137,7 @@ server.listen(PORT, "0.0.0.0", () => {
 process.on("SIGINT", () => {
   console.log("🛑 Shutting down server...");
   server.close(async () => {
-    await Promise.allSettled([redis.close(), pool.end()]);
+    await app.dispose();
     process.exit(0);
   });
 });
