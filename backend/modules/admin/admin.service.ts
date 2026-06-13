@@ -78,21 +78,26 @@ export class AdminService {
     }
 
     await withTransaction(this.db, async (client) => {
-      const target = await client.query(
-        "SELECT role FROM users WHERE id = $1",
+      // Lock the target row so a concurrent delete of the same user can't
+      // race past the existence check.
+      const target = await client.query<{ role: string }>(
+        "SELECT role FROM users WHERE id = $1 FOR UPDATE",
         [id],
       );
 
-      if (target.rows.length === 0) {
+      const targetRow = target.rows[0];
+      if (!targetRow) {
         throw new NotFoundError("المستخدم غير موجود.");
       }
 
-      if (target.rows[0].role === "admin") {
+      if (targetRow.role === "admin") {
+        // Lock every admin row (COUNT can't take FOR UPDATE) so two concurrent
+        // admin deletes can't both pass the guard and drain to zero admins.
         const admins = await client.query(
-          "SELECT COUNT(*)::int AS count FROM users WHERE role = 'admin'",
+          "SELECT id FROM users WHERE role = 'admin' FOR UPDATE",
         );
 
-        if (admins.rows[0].count <= 1) {
+        if (admins.rows.length <= 1) {
           throw new ForbiddenError("لا يمكن حذف آخر مسؤول.");
         }
       }
