@@ -107,11 +107,11 @@ export const ProfessorDashboard = () => {
       }
       closeModal();
       fetchCourses();
-    } catch {
-      addToast(
-        editingCourse ? "حدث خطأ أثناء التحديث" : "حدث خطأ أثناء الإضافة",
-        "error",
-      );
+    } catch (err) {
+      const defaultMsg = editingCourse
+        ? "حدث خطأ أثناء التحديث"
+        : "حدث خطأ أثناء الإضافة";
+      addToast(err instanceof ApiError ? err.message : defaultMsg, "error");
     }
   };
 
