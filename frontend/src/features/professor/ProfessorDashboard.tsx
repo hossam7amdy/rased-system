@@ -35,7 +35,7 @@ const blankCourse = {
 export const ProfessorDashboard = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeSession, setActiveSession] = useState<Course | null>(null);
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("courses");

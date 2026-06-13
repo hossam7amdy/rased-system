@@ -62,7 +62,7 @@ export const AttendanceManagementPage = ({
     }
   };
 
-  const fetchSessionRecords = async (sessionId: number) => {
+  const fetchSessionRecords = async (sessionId: string) => {
     setLoadingRecords(true);
     setSessionRecords([]);
     try {

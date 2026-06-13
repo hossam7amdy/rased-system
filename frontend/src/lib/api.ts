@@ -89,7 +89,7 @@ export const coursesApi = {
 export const attendanceApi = {
   currentQr: (courseId: string) =>
     payload<QrToken>(client.get(`/attendance/current-qr/${courseId}`)),
-  session: (sessionId: number) =>
+  session: (sessionId: string) =>
     payload<{ records: import("./types").AttendanceRecord[] }>(
       client.get(`/attendance/sessions/${sessionId}`),
     ),
@@ -101,7 +101,7 @@ export const attendanceApi = {
     payload<{ session: SessionSummary }>(
       client.post("/attendance/sessions", input),
     ),
-  endSession: (sessionId: number) =>
+  endSession: (sessionId: string) =>
     payload<unknown>(client.patch(`/attendance/sessions/${sessionId}/end`)),
   scan: (token: string, courseId: string) =>
     payload<unknown>(client.post("/attendance/scan", { token, courseId })),
@@ -112,7 +112,7 @@ export const analyticsApi = {
   course: (courseId: string) =>
     payload<CourseAnalytics>(client.get(`/analytics/course/${courseId}`)),
   /** Returns a Blob (xlsx). */
-  export: async (params: { courseId: string; sessionId?: number }) => {
+  export: async (params: { courseId: string; sessionId?: string }) => {
     const res = await client.get("/analytics/export", {
       params,
       responseType: "blob",
@@ -128,7 +128,7 @@ export const adminApi = {
     payload<{ students: Student[] }>(client.get("/admin/students")),
   courses: () => payload<{ courses: Course[] }>(client.get("/admin/courses")),
   // Enroll endpoints return their full result envelope to the UI (not unwrapped).
-  enrollBulk: async (studentIds: number[], courseIds: string[]) => {
+  enrollBulk: async (studentIds: string[], courseIds: string[]) => {
     const res = await client.post("/admin/enroll-bulk", {
       studentIds,
       courseIds,

@@ -50,7 +50,7 @@ describe("api layer — envelope handling", () => {
     h.post.mockResolvedValue({
       data: { success: true, errors: 0, enrolled: 3, message: "ok" },
     });
-    expect(await api.adminApi.enrollBulk([1], ["2"])).toEqual({
+    expect(await api.adminApi.enrollBulk(["1"], ["2"])).toEqual({
       success: true,
       errors: 0,
       enrolled: 3,
