@@ -1,4 +1,4 @@
-import { after, before, type HookOptions } from "node:test";
+import { after, before } from "node:test";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 import { createApp } from "../app.ts";
@@ -10,14 +10,13 @@ import { ConfigToken } from "../shared/config/config.ts";
 import { Database } from "../shared/database/database.ts";
 
 export const testApp = createApp();
-const appConfig = testApp.resolve(ConfigToken);
+const config = testApp.resolve(ConfigToken);
 
-const dbConfig = appConfig.db;
 const isTestDb =
-  /^[a-z][a-z0-9_]*$/.test(dbConfig.name) && /test/i.test(dbConfig.name);
+  /^[a-z][a-z0-9_]*$/.test(config.db.name) && /test/i.test(config.db.name);
 if (!isTestDb) {
   throw new Error(
-    `Refusing to run integration tests: DB_NAME='${dbConfig.name}' does not look like a test DB.`,
+    `Refusing to run integration tests: DB_NAME='${config.db.name}' does not look like a test DB.`,
   );
 }
 
@@ -25,7 +24,6 @@ export const PASSWORD = "int-pass-123";
 
 // Shared fixture state, populated by the before() hook below.
 export const state = {
-  state_pool: testApp.resolve(Database),
   tok: { admin: "", prof: "", student: "" },
   prof: null as unknown as User,
   student: null as unknown as User,
@@ -35,26 +33,34 @@ export const state = {
   creds: { prof: { email: "int-prof@rased.edu", password: PASSWORD } },
 };
 
+// Uses a throwaway pool on the maintenance `postgres` DB — can't CREATE DATABASE
+// while connected to the target, and the shared `db` pool must stay open for applySchema.
 async function ensureDatabase(): Promise<void> {
-  const pool = new Pool(dbConfig);
+  const admin = new Pool({
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
+    password: config.db.password,
+    database: "postgres",
+  });
   try {
-    const exists = await pool.query(
+    const exists = await admin.query(
       "SELECT 1 FROM pg_database WHERE datname = $1",
-      [dbConfig.name],
+      [config.db.name],
     );
     if (exists.rows.length === 0) {
-      await pool.query(`CREATE DATABASE ${dbConfig.name}`);
+      await admin.query(`CREATE DATABASE ${config.db.name}`);
     }
   } catch (err) {
     if ((err as { code?: string }).code !== "42P04") throw err; // duplicate_database
   } finally {
-    await pool.end();
+    await admin.end();
   }
 }
 
 async function upsertUser(u: Partial<User>): Promise<User> {
   const hash = await bcrypt.hash(PASSWORD, 10);
-  const res = await pool.query<User>(
+  const res = await db.query<User>(
     `INSERT INTO users (email, password_hash, role, full_name, student_id)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name
@@ -83,7 +89,7 @@ async function seed(): Promise<void> {
     student_id: "INT-STU-1",
   });
 
-  const course = await pool.query<{ id: string }>(
+  const course = await db.query<{ id: string }>(
     `INSERT INTO courses (course_code, course_name, professor_id, semester, academic_year)
      VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (course_code) DO UPDATE SET course_name = EXCLUDED.course_name
@@ -92,14 +98,14 @@ async function seed(): Promise<void> {
   );
   state.courseId = (course.rows[0] as { id: string }).id;
 
-  await pool.query(
+  await db.query(
     `INSERT INTO enrollments (course_id, student_id)
      VALUES ($1, $2) ON CONFLICT (course_id, student_id) DO NOTHING`,
     [state.courseId, state.student.id],
   );
 
   // one canonical active session, idempotent via marker session_name
-  const session = await pool.query<{ id: string }>(
+  const session = await db.query<{ id: string }>(
     `INSERT INTO attendance_sessions (course_id, session_name, session_date, start_time, is_active)
      SELECT $1, 'INTEGRATION_SESSION', CURRENT_DATE, NOW(), true
      WHERE NOT EXISTS (
@@ -112,7 +118,7 @@ async function seed(): Promise<void> {
   if (session.rows.length > 0) {
     state.sessionId = (session.rows[0] as { id: string }).id;
   } else {
-    const existing = await pool.query<{ id: string }>(
+    const existing = await db.query<{ id: string }>(
       `SELECT id FROM attendance_sessions
        WHERE course_id = $1 AND session_name = 'INTEGRATION_SESSION' LIMIT 1`,
       [state.courseId],
@@ -120,36 +126,34 @@ async function seed(): Promise<void> {
     state.sessionId = (existing.rows[0] as { id: string }).id;
   }
 
-  await pool.query(
+  await db.query(
     `INSERT INTO attendance_records (session_id, course_id, student_id, scanned_at, status)
      VALUES ($1, $2, $3, NOW(), 'present')
      ON CONFLICT (session_id, student_id) DO NOTHING`,
     [state.sessionId, state.courseId, state.student.id],
   );
 
-  const jwtConfig = appConfig.jwt;
+  const jwtConfig = config.jwt;
   state.tok.admin = generateToken(state.admin, jwtConfig);
   state.tok.prof = generateToken(state.prof, jwtConfig);
   state.tok.student = generateToken(state.student, jwtConfig);
 }
 
-const pool = testApp.resolve(Database);
+const db = testApp.resolve(Database);
 const cache = testApp.resolve(CacheClient);
-
-const TEST_OPTIONS: HookOptions = { timeout: 5000 };
 
 before(async () => {
   await ensureDatabase();
-  await applySchema(pool);
+  await applySchema(db);
   await cache.connect();
   await cache.clear();
   await seed();
-}, TEST_OPTIONS);
+});
 
 after(async () => {
-  await pool.query(
+  await db.query(
     "TRUNCATE attendance_records, attendance_sessions, enrollments, courses, users CASCADE",
   );
   await cache.clear();
   await testApp.dispose();
-}, TEST_OPTIONS);
+});

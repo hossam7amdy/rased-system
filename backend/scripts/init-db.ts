@@ -1,9 +1,8 @@
-import { Pool, type PoolClient } from "pg";
 import { loadConfig } from "../shared/config/config.ts";
-import { withTransaction } from "../shared/database/with-transaction.ts";
+import { Database } from "../shared/database/database.ts";
 
 // Idempotent schema. Single DDL source: init-db CLI + test setup.
-export const applySchema = async (client: Pool | PoolClient): Promise<void> => {
+export const applySchema = async (client: Database): Promise<void> => {
   await client.query(`
     DO $$ BEGIN
       CREATE TYPE user_role AS ENUM ('admin', 'professor', 'student');
@@ -78,17 +77,15 @@ export const applySchema = async (client: Pool | PoolClient): Promise<void> => {
 };
 
 const initDatabase = async (): Promise<void> => {
-  const dbConfig = loadConfig().db;
-  const pool = new Pool(dbConfig);
+  const config = loadConfig();
+  const db = new Database(config);
 
   try {
     console.log("📊 Connected to PostgreSQL. Starting initialization...");
-    await withTransaction(pool, applySchema);
+    await applySchema(db);
     console.log("✅ Schema applied");
-  } catch (error) {
-    console.error("❌ Error:", (error as Error).message);
   } finally {
-    await pool.end();
+    await db.end();
   }
 };
 

@@ -1,8 +1,8 @@
-import type { Pool, PoolClient } from "pg";
+import type { PoolClient } from "pg";
 import type { Database } from "./database.ts";
 
 export async function withTransaction<T>(
-  db: Database | Pool,
+  db: Database,
   fn: (c: PoolClient) => Promise<T>,
 ) {
   const client = await db.connect();
