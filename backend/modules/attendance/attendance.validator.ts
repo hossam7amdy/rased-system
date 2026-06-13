@@ -8,6 +8,7 @@ export const CreateSessionSchema = z.strictObject({
 
 export const ScanQRSchema = z.strictObject({
   token: z.string().min(1),
+  courseId: z.uuid().optional(),
 });
 
 export const ManualOverrideSchema = z.strictObject({

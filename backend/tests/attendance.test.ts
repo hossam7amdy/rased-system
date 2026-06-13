@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
-import qrTokenService from "../services/qrTokenService.ts";
+import { QRTokenService } from "../services/qrTokenService.ts";
 import {
   enroll,
   makeCourse,
@@ -25,8 +25,11 @@ import {
   SessionRow,
   StudentAttendanceRecord,
 } from "./schemas.ts";
+import { app } from "./setup.ts";
 
 const RANDOM_UUID = "00000000-0000-4000-8000-000000000000";
+
+const qrTokenService = app.resolve(QRTokenService);
 
 test("GET /attendance/active-sessions → 200 { data: ActiveSession[] }", async () => {
   const res = await req("get", "/attendance/active-sessions", {

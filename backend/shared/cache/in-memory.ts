@@ -1,4 +1,4 @@
-import { CacheClient, type SetOptions } from "./cache.client.ts";
+import { CacheClient, type SetOptions } from "./cache-client.ts";
 
 export class InMemoryCache extends CacheClient {
   readonly #store = new Map<string, string>();
@@ -36,6 +36,14 @@ export class InMemoryCache extends CacheClient {
       clearTimeout(timer);
     }
     this.#timers.clear();
+  }
+
+  connect(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  clear(): Promise<void> {
+    return this.close();
   }
 
   private scheduleExpiry(key: string, ms: number): void {

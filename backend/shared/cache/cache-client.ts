@@ -7,6 +7,8 @@ export interface SetOptions {
 
 export abstract class CacheClient implements AsyncDisposable {
   abstract readonly isOpen: boolean;
+  abstract connect(): Promise<void>;
+  abstract clear(): Promise<void>;
   abstract get(key: string): Promise<string | null>;
   abstract set(
     key: string,

@@ -1,8 +1,9 @@
 import { inject } from "injectus";
-import cacheClient from "../../config/redis.ts";
-import qrTokenService, {
+import {
+  QRTokenService,
   ROTATION_INTERVAL_MS,
 } from "../../services/qrTokenService.ts";
+import { CacheClient } from "../../shared/cache/cache-client.ts";
 import { Database } from "../../shared/database/database.ts";
 import {
   BadRequestError,
@@ -26,9 +27,17 @@ import type {
 } from "./attendance.model.ts";
 
 export class AttendanceService {
-  private readonly db;
-  constructor(db = inject(Database)) {
+  private readonly db: Database;
+  private readonly cache: CacheClient;
+  private readonly qrTokenService: QRTokenService;
+  constructor(
+    db = inject(Database),
+    cache = inject(CacheClient),
+    qrTokenService = inject(QRTokenService),
+  ) {
     this.db = db;
+    this.cache = cache;
+    this.qrTokenService = qrTokenService;
   }
 
   async createSession(input: CreateSessionDto): Promise<AttendanceSession> {
@@ -56,7 +65,7 @@ export class AttendanceService {
   async endSession(sessionId: string, professorId: string): Promise<string> {
     const courseId = await this.assertSessionOwnership(sessionId, professorId);
 
-    qrTokenService.stopRotation(courseId);
+    this.qrTokenService.stopRotation(courseId);
 
     await this.db.query(
       `UPDATE attendance_sessions
@@ -69,13 +78,13 @@ export class AttendanceService {
   }
 
   async scanQR(input: ScanQRDto): Promise<ScanResultDto> {
-    const validation = await qrTokenService.validateToken(input.token);
+    const validation = await this.qrTokenService.validateToken(input.token);
 
-    if (!validation.valid) {
+    if (!validation.valid || !validation.courseId) {
       throw new BadRequestError(validation.message ?? "رمز غير صالح.");
     }
 
-    const courseId = validation.courseId!;
+    const courseId = validation.courseId;
 
     const enrollmentCheck = await this.db.query(
       "SELECT id FROM enrollments WHERE student_id = $1 AND course_id = $2",
@@ -247,7 +256,7 @@ export class AttendanceService {
   }
 
   async getCurrentQR(courseId: string): Promise<CurrentQrDto> {
-    const token = await cacheClient.get(`active_qr_session_${courseId}`);
+    const token = await this.cache.get(`active_qr_session_${courseId}`);
 
     if (!token) {
       throw new NotFoundError("لا توجد جلسة QR نشطة لهذه المادة.");

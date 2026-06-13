@@ -1,5 +1,6 @@
+import { inject } from "injectus";
 import type { Server } from "socket.io";
-import cacheClient from "../config/redis.ts";
+import { CacheClient } from "../shared/cache/cache-client.ts";
 import TokenEncryption from "../utils/tokenEncryption.ts";
 
 export const ROTATION_INTERVAL_MS = 8000;
@@ -17,8 +18,13 @@ interface ValidationResult {
   courseId?: string;
 }
 
-class QRTokenService {
+export class QRTokenService {
+  private cache: CacheClient;
   private activeRotations = new Map<string, NodeJS.Timeout>();
+
+  constructor(cache = inject(CacheClient)) {
+    this.cache = cache;
+  }
 
   async generateToken(sessionId: string | number): Promise<GeneratedToken> {
     const timestamp = Date.now();
@@ -27,8 +33,11 @@ class QRTokenService {
 
     const cacheKey = `active_qr_session_${sessionId}`;
     try {
-      await cacheClient.set(cacheKey, encryptedToken, {
-        EX: TOKEN_VALIDITY_SEC,
+      await this.cache.set(cacheKey, encryptedToken, {
+        expiration: {
+          value: TOKEN_VALIDITY_SEC,
+          type: "EX",
+        },
       });
       console.log(
         `🆕 [QR_STORED] Session: ${sessionId} | Token: ${encryptedToken.substring(0, 12)}...`,
@@ -65,11 +74,11 @@ class QRTokenService {
 
     const replayKey = `used_qr:${TokenEncryption.hash(token)}`;
     try {
-      const alreadyUsed = await cacheClient.get(replayKey);
+      const alreadyUsed = await this.cache.get(replayKey);
       if (alreadyUsed) {
         return { valid: false, message: "تم استخدام هذا الرمز مسبقاً." };
       }
-      await cacheClient.setEx(replayKey, TOKEN_VALIDITY_SEC, "true");
+      await this.cache.setEx(replayKey, TOKEN_VALIDITY_SEC, "true");
     } catch (err) {
       console.error("⚠️ [REPLAY_CHECK_SKIPPED]:", (err as Error).message);
     }
@@ -106,9 +115,3 @@ class QRTokenService {
     }
   }
 }
-
-const qrTokenService = new QRTokenService();
-
-export default qrTokenService;
-export const startRotation = qrTokenService.startRotation.bind(qrTokenService);
-export const stopRotation = qrTokenService.stopRotation.bind(qrTokenService);

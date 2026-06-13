@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { checkRole, verifyToken } from "../../middleware/auth.ts";
-import qrTokenService from "../../services/qrTokenService.ts";
+import { QRTokenService } from "../../services/qrTokenService.ts";
 import { AttendanceService } from "./attendance.service.ts";
 import {
   CreateSessionSchema,
@@ -28,6 +28,7 @@ router.post(
   async (req, res) => {
     const payload = req.validBody(CreateSessionSchema);
     const service = req.resolve(AttendanceService);
+    const qrTokenService = req.resolve(QRTokenService);
     const session = await service.createSession({
       ...payload,
       professorId: req.user!.id,
