@@ -16,7 +16,7 @@ vi.mock("qrcode", () => ({
 }));
 
 const course = {
-  id: 1,
+  id: "1",
   course_code: "CS101",
   course_name: "Test Course",
   semester: "Fall",

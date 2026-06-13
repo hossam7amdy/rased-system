@@ -41,7 +41,7 @@ export const ProfessorDashboard = () => {
   const [activeTab, setActiveTab] = useState<Tab>("courses");
   const [newCourse, setNewCourse] = useState({ ...blankCourse });
   const [loading, setLoading] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const addToast = useToast();
 
   const fetchCourses = useCallback(async () => {
@@ -67,7 +67,7 @@ export const ProfessorDashboard = () => {
     fetchCourses();
   }, [fetchCourses]);
 
-  const handleDeleteCourse = async (courseId: number) => {
+  const handleDeleteCourse = async (courseId: string) => {
     try {
       await coursesApi.remove(courseId);
       setCourses((prev) => prev.filter((c) => c.id !== courseId));

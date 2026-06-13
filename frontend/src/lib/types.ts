@@ -13,7 +13,7 @@ export interface User {
 }
 
 export interface Course {
-  id: number;
+  id: string;
   course_code: string;
   course_name: string;
   semester: string;

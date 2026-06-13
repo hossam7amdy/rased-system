@@ -63,7 +63,7 @@ export const StudentScanner = ({ courseId }: StudentScannerProps) => {
             try {
               await attendanceApi.scan(
                 decodedText,
-                Number(courseIdRef.current),
+                String(courseIdRef.current),
               );
               setStatus({ type: "success", msg: "تم تسجيل حضورك بنجاح! ✅" });
             } catch (err) {

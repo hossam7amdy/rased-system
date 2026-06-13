@@ -50,7 +50,7 @@ describe("api layer — envelope handling", () => {
     h.post.mockResolvedValue({
       data: { success: true, errors: 0, enrolled: 3, message: "ok" },
     });
-    expect(await api.adminApi.enrollBulk([1], [2])).toEqual({
+    expect(await api.adminApi.enrollBulk([1], ["2"])).toEqual({
       success: true,
       errors: 0,
       enrolled: 3,
@@ -60,12 +60,12 @@ describe("api layer — envelope handling", () => {
 
   test("export requests a blob response type", async () => {
     h.get.mockResolvedValue({ data: new Blob(["x"]) });
-    await api.analyticsApi.export({ courseId: 5 });
+    await api.analyticsApi.export({ courseId: "5" });
     expect(h.get).toHaveBeenCalledWith(
       "/analytics/export",
       expect.objectContaining({
         responseType: "blob",
-        params: { courseId: 5 },
+        params: { courseId: "5" },
       }),
     );
   });

@@ -360,7 +360,7 @@ const EnrollmentManager = () => {
   const [selectedStudents, setSelectedStudents] = useState<Set<number>>(
     new Set(),
   );
-  const [selectedCourses, setSelectedCourses] = useState<Set<number>>(
+  const [selectedCourses, setSelectedCourses] = useState<Set<string>>(
     new Set(),
   );
 
@@ -473,7 +473,7 @@ const EnrollmentManager = () => {
       return next;
     });
 
-  const toggleCourse = (id: number) =>
+  const toggleCourse = (id: string) =>
     setSelectedCourses((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
