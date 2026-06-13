@@ -5,6 +5,7 @@ import {
   Plus,
   Shield,
   Sun,
+  Trash2,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -49,6 +50,12 @@ const roleStyle: Record<Role, string> = {
     "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300",
   student: "bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300",
 };
+const deleteScopeWarning: Record<Role, string> = {
+  admin: "سيتم حذف حساب المسؤول نهائياً.",
+  professor:
+    "سيتم حذف الدكتور وكل المواد وسجلات الحضور المرتبطة بها نهائياً. لا يمكن التراجع.",
+  student: "سيتم حذف الطالب وكل تسجيلاته وسجلات حضوره نهائياً. لا يمكن التراجع.",
+};
 
 const navItems = [
   { key: "overview" as const, label: "إدارة المستخدمين", icon: Users },
@@ -87,6 +94,10 @@ export const AdminDashboard = () => {
   );
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<NewUserForm>({ ...blankForm });
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const adminCount = users.filter((u) => u.role === "admin").length;
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -122,6 +133,24 @@ export const AdminDashboard = () => {
         err instanceof ApiError ? err.message : "خطأ في العملية",
         "error",
       );
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await adminApi.deleteUser(deleteTarget.id);
+      setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
+      addToast("تم حذف المستخدم بنجاح", "success");
+      setDeleteTarget(null);
+    } catch (err) {
+      addToast(
+        err instanceof ApiError ? err.message : "فشل حذف المستخدم",
+        "error",
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -281,6 +310,7 @@ export const AdminDashboard = () => {
                             "الصلاحية",
                             "البريد الإلكتروني",
                             "الرقم التعريفي",
+                            "إجراءات",
                           ].map((h) => (
                             <th
                               key={h}
@@ -322,6 +352,30 @@ export const AdminDashboard = () => {
                             </td>
                             <td className="p-4 font-mono text-xs text-slate-400 dark:text-slate-500">
                               {u.student_id || "N/A"}
+                            </td>
+                            <td className="p-4">
+                              {(() => {
+                                const isSelf = u.id === user?.id;
+                                const isLastAdmin =
+                                  u.role === "admin" && adminCount <= 1;
+                                const disabled = isSelf || isLastAdmin;
+                                const title = isSelf
+                                  ? "لا يمكنك حذف حسابك"
+                                  : isLastAdmin
+                                    ? "لا يمكن حذف آخر مسؤول"
+                                    : "حذف المستخدم";
+                                return (
+                                  <button
+                                    type="button"
+                                    disabled={disabled}
+                                    title={title}
+                                    onClick={() => setDeleteTarget(u)}
+                                    className="w-9 h-9 rounded-xl flex items-center justify-center text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                );
+                              })()}
                             </td>
                           </tr>
                         ))}
@@ -419,6 +473,45 @@ export const AdminDashboard = () => {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete User Confirm Modal */}
+      <Modal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        title="حذف المستخدم"
+      >
+        {deleteTarget && (
+          <div className="space-y-5">
+            <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              حذف{" "}
+              <span className="font-black text-slate-900 dark:text-white">
+                {deleteTarget.full_name}
+              </span>
+              ؟
+            </p>
+            <p className="text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl p-3.5">
+              {deleteScopeWarning[deleteTarget.role]}
+            </p>
+            <div className="flex gap-3 pt-1">
+              <Button
+                onClick={handleDeleteUser}
+                disabled={deleting}
+                className="flex-[2] py-4 !bg-red-600 hover:!bg-red-700"
+              >
+                {deleting ? "جارٍ الحذف..." : "حذف نهائي"}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 py-4"
+              >
+                إلغاء
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );
