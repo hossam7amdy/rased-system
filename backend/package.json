@@ -14,7 +14,7 @@
     "dev": "node --watch --enable-source-maps --experimental-strip-types server.ts",
     "typecheck": "tsc --noEmit",
     "init-db": "node --experimental-strip-types scripts/init-db.ts",
-    "test": "echo \"no tests yet!\"; exit 0",
+    "test": "echo \"no unit tests exist.\"; exit 0",
     "test:int": "node --env-file=.env.test --experimental-strip-types --test --test-timeout=5000 --test-isolation=none --test-concurrency=1 tests/*.test.ts"
   },
   "dependencies": {
