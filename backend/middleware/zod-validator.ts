@@ -7,6 +7,7 @@ declare global {
     interface Request {
       validBody<S extends ZodType>(schema: S): output<S>;
       validQuery<S extends ZodType>(schema: S): output<S>;
+      validParams<S extends ZodType>(schema: S): output<S>;
     }
   }
 }
@@ -21,6 +22,13 @@ export function zodValidator(req: Request, _res: Response, next: NextFunction) {
   };
   req.validQuery = (s) => {
     const result = s.safeParse(req.query);
+    if (!result.success) {
+      throw new BadRequestError(prettifyError(result.error));
+    }
+    return result.data;
+  };
+  req.validParams = (s) => {
+    const result = s.safeParse(req.params);
     if (!result.success) {
       throw new BadRequestError(prettifyError(result.error));
     }

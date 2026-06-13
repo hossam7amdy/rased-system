@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
+import { AdminService } from "../modules/admin/admin.service.ts";
 import { Database } from "../shared/database/database.ts";
 import { makeCourse, makeStudent, req, state, uniq } from "./helpers.ts";
 import {
@@ -50,6 +51,65 @@ test("GET /admin/courses → error envelope without auth", async () => {
   const res = await req("get", "/admin/courses");
   assert.ok(res.status >= 400);
   Err.parse(res.body);
+});
+
+test("DELETE /admin/users/:id → 204 for a student", async () => {
+  const student = await makeStudent();
+  const res = await req("delete", `/admin/users/${student.id}`, {
+    token: state.tok.admin,
+  });
+  assert.equal(res.status, 204);
+
+  const remaining = await testApp
+    .resolve(Database)
+    .query("SELECT id FROM users WHERE id = $1", [student.id]);
+  assert.equal(remaining.rows.length, 0);
+});
+
+test("DELETE /admin/users/:id → 404 for unknown id", async () => {
+  const res = await req(
+    "delete",
+    "/admin/users/00000000-0000-0000-0000-000000000000",
+    { token: state.tok.admin },
+  );
+  assert.equal(res.status, 404);
+  Err.parse(res.body);
+});
+
+test("DELETE /admin/users/:id → 400 for malformed id", async () => {
+  const res = await req("delete", "/admin/users/not-a-uuid", {
+    token: state.tok.admin,
+  });
+  assert.equal(res.status, 400);
+  Err.parse(res.body);
+});
+
+test("DELETE /admin/users/:id → 403 when admin deletes self", async () => {
+  const res = await req("delete", `/admin/users/${state.admin.id}`, {
+    token: state.tok.admin,
+  });
+  assert.equal(res.status, 403);
+  Err.parse(res.body);
+});
+
+test("DELETE /admin/users/:id → error envelope for non-admin", async () => {
+  const student = await makeStudent();
+  const res = await req("delete", `/admin/users/${student.id}`, {
+    token: state.tok.prof,
+  });
+  assert.ok(res.status >= 400);
+  Err.parse(res.body);
+});
+
+// Last-admin guard is unreachable over HTTP (the caller is always an admin, so a
+// non-self admin target implies ≥2 admins). Exercised at the service layer where
+// requesterId is controllable; the seed admin is the only admin in the fixture.
+test("AdminService.deleteUser blocks deleting the last admin", async () => {
+  const service = testApp.resolve(AdminService);
+  await assert.rejects(
+    () => service.deleteUser(state.admin.id, uniq("not-an-admin")),
+    /آخر مسؤول/,
+  );
 });
 
 test("POST /admin/enroll → 201 { enrollment }", async () => {

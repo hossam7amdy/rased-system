@@ -1,7 +1,11 @@
 import { inject } from "injectus";
 import { Database } from "../../shared/database/database.ts";
 import { withTransaction } from "../../shared/database/with-transaction.ts";
-import { ConflictError } from "../../shared/errors.ts";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../shared/errors.ts";
 import type { BulkCounts, ImportResult } from "./admin.dto.ts";
 import type {
   AdminCourseRow,
@@ -66,6 +70,40 @@ export class AdminService {
     );
 
     return result.rows;
+  }
+
+  async deleteUser(id: string, requesterId: string): Promise<void> {
+    if (id === requesterId) {
+      throw new ForbiddenError("لا يمكنك حذف حسابك الخاص.");
+    }
+
+    await withTransaction(this.db, async (client) => {
+      // Lock the target row so a concurrent delete of the same user can't
+      // race past the existence check.
+      const target = await client.query<{ role: string }>(
+        "SELECT role FROM users WHERE id = $1 FOR UPDATE",
+        [id],
+      );
+
+      const targetRow = target.rows[0];
+      if (!targetRow) {
+        throw new NotFoundError("المستخدم غير موجود.");
+      }
+
+      if (targetRow.role === "admin") {
+        // Lock every admin row (COUNT can't take FOR UPDATE) so two concurrent
+        // admin deletes can't both pass the guard and drain to zero admins.
+        const admins = await client.query(
+          "SELECT id FROM users WHERE role = 'admin' FOR UPDATE",
+        );
+
+        if (admins.rows.length <= 1) {
+          throw new ForbiddenError("لا يمكن حذف آخر مسؤول.");
+        }
+      }
+
+      await client.query("DELETE FROM users WHERE id = $1", [id]);
+    });
   }
 
   async enrollOne(studentId: string, courseId: string): Promise<Enrollment> {
