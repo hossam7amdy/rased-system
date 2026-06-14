@@ -31,6 +31,10 @@ export function createApp(
 
   app.set("trust proxy", 1);
 
+  // First so req.resolve is available to every later middleware, the routes,
+  // and the error handler (e.g. for logging a body-parser failure).
+  app.use(injectorResolver(injector));
+
   app.use(helmet({ contentSecurityPolicy: false }));
   // TODO: should specify a list of allowed origins
 
@@ -43,8 +47,6 @@ export function createApp(
   if (io) app.use(ioServer(io));
 
   app.use(zodValidator);
-
-  app.use(injectorResolver(injector));
 
   app.use("/api/", rateLimiter());
 

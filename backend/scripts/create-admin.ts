@@ -1,12 +1,14 @@
 import bcrypt from "bcryptjs";
 import { loadConfig } from "../shared/config/config.ts";
 import { Database } from "../shared/database/database.ts";
+import { createLogger } from "../shared/logger/logger.ts";
 
 const email = "admin@rased.edu";
 const password = "pass@WORD#123";
 const fullName = "System Administrator";
 
 const config = loadConfig();
+const logger = createLogger(config);
 const db = new Database(config);
 
 try {
@@ -23,10 +25,10 @@ try {
   );
 
   if (res.rows.length > 0) {
-    console.log("✅ Admin account created successfully!");
-    console.log(`Email: ${email} | Password: ${password}`);
+    // Credentials are hardcoded above for the operator; never log the password.
+    logger.info({ email }, "✅ admin account created");
   } else {
-    console.log("⚠️ User already exists or check column names.");
+    logger.warn("⚠️ user already exists or check column names");
   }
 } finally {
   await db.end();

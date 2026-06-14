@@ -8,6 +8,7 @@ import { CacheClient } from "./shared/cache/cache-client.ts";
 import { ConfigToken } from "./shared/config/config.ts";
 import { Database } from "./shared/database/database.ts";
 import { UnauthorizedError } from "./shared/errors.ts";
+import { LoggerToken } from "./shared/logger/logger.ts";
 
 declare module "socket.io" {
   interface Socket {
@@ -31,6 +32,7 @@ const server = createServer(app);
 const config = app.resolve(ConfigToken);
 const jwtService = app.resolve(JwtService);
 const qrTokenService = app.resolve(QRTokenService);
+const logger = app.resolve(LoggerToken);
 
 await Promise.all([
   app.resolve(Database).query("SELECT 1"),
@@ -52,27 +54,29 @@ io.attach(server)
       socket.user = decoded;
       next();
     } catch (error) {
-      console.log("❌ JWT Auth Error Detail:", (error as Error).message);
+      logger.warn({ err: error }, "❌ socket JWT auth failed");
       return next(new UnauthorizedError("Invalid authentication token"));
     }
   })
   .on("connection", (socket) => {
-    console.log(
-      `✅ User connected: ${socket.user.email} | Socket ID: ${socket.id}`,
+    logger.debug(
+      { email: socket.user.email, socketId: socket.id },
+      "✅ user connected",
     );
 
     socket.on("start_attendance", async (courseId: unknown) => {
       try {
         if (!courseId) {
-          console.error("❌ Error: courseId is undefined or null");
+          logger.warn("❌ start_attendance: courseId is undefined or null");
           socket.emit("error", { message: "معرف المادة غير صالح." });
           return;
         }
 
         const roomId = String(courseId);
 
-        console.log(
-          `🎯 [ROOM_JOIN] Professor ${socket.user.email} joining EXACT room: "${roomId}"`,
+        logger.debug(
+          { email: socket.user.email, roomId },
+          "🎯 [ROOM_JOIN] professor joining room",
         );
 
         socket.join(roomId);
@@ -83,7 +87,7 @@ io.attach(server)
           message: "QR rotation active.",
         });
       } catch (error) {
-        console.error("🔥 Socket Error (start_attendance):", error);
+        logger.error({ err: error }, "🔥 socket error (start_attendance)");
         socket.emit("error", { message: "Failed to start QR session." });
       }
     });
@@ -94,15 +98,16 @@ io.attach(server)
         const roomId = String(courseId);
         qrTokenService.stopRotation(roomId);
         socket.leave(roomId);
-        console.log(`⏹️ Session stopped for room: "${roomId}"`);
+        logger.debug({ roomId }, "⏹️ session stopped for room");
       } catch (error) {
-        console.error("Stop session error:", error);
+        logger.error({ err: error }, "stop session error");
       }
     });
 
     socket.on("disconnect", () => {
-      console.log(
-        `❌ User disconnected: ${socket.user.email} | Socket ID: ${socket.id}`,
+      logger.debug(
+        { email: socket.user.email, socketId: socket.id },
+        "❌ user disconnected",
       );
     });
   });
@@ -122,20 +127,18 @@ for (const name in networkInterfaces) {
 const PORT = config.server.port;
 
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`
-╔══════════════════════════════════════════════════════════╗
-║        🎓 Rased Attendance System - Secure Mode          ║
-╠══════════════════════════════════════════════════════════╣
-║ 🚀 Port: ${PORT}                                         ║
-║ 🔗 Local: http://localhost:${PORT}/api                   ║
-║ 📱 Network: http://${localIp}:${PORT}/api                ║
-║ 🛡️  Redis: Active & Monitoring                           ║
-╚══════════════════════════════════════════════════════════╝
-  `);
+  logger.info(
+    {
+      port: PORT,
+      local: `http://localhost:${PORT}/api`,
+      network: `http://${localIp}:${PORT}/api`,
+    },
+    "🎓 Rased Attendance System started",
+  );
 });
 
 process.on("SIGINT", () => {
-  console.log("🛑 Shutting down server...");
+  logger.info("🛑 shutting down server...");
   server.close(async () => {
     await app.dispose();
     process.exit(0);
