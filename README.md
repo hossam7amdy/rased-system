@@ -377,14 +377,15 @@ const limiter = rateLimit({
 ### Using Docker (Recommended)
 
 ```dockerfile
-# backend/Dockerfile
-FROM node:18-alpine
+# Dockerfile (build context = repo root, for npm workspaces)
+FROM node:22-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --omit=dev
-COPY . .
+COPY backend/package.json ./backend/
+RUN npm ci --omit=dev -w backend
+COPY backend/ ./backend/
 EXPOSE 5000
-CMD ["node", "server.js"]
+CMD ["node", "--experimental-strip-types", "backend/server.ts"]
 ```
 
 ### Using Docker Compose
