@@ -32,6 +32,9 @@ export interface Config {
     password?: string;
     db: number;
   } | null;
+  cors: {
+    origins: string[];
+  };
 }
 
 function toConfig(env: Env): Config {
@@ -67,6 +70,7 @@ function toConfig(env: Env): Config {
       validityMs: env.QR_VALIDITY_MS,
     },
     redis,
+    cors: { origins: env.CORS_ORIGINS },
   };
 }
 

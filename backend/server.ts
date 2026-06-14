@@ -5,7 +5,7 @@ import { createApp } from "./app.ts";
 import { QRTokenService } from "./modules/attendance/qr.service.ts";
 import { type JwtPayload, JwtService } from "./modules/auth/jwt.service.ts";
 import { CacheClient } from "./shared/cache/cache-client.ts";
-import { ConfigToken } from "./shared/config/config.ts";
+import { loadConfig } from "./shared/config/config.ts";
 import { Database } from "./shared/database/database.ts";
 import { UnauthorizedError } from "./shared/errors.ts";
 import { LoggerToken } from "./shared/logger/logger.ts";
@@ -16,10 +16,12 @@ declare module "socket.io" {
   }
 }
 
+const config = loadConfig();
+
 // io built first so createApp can wire it in before routes, then attached below.
 const io = new Server({
   cors: {
-    origin: "*",
+    origin: config.cors.origins,
     methods: ["GET", "POST"],
     allowedHeaders: ["Authorization"],
     credentials: true,
@@ -29,7 +31,6 @@ const io = new Server({
 const app = createApp(io);
 const server = createServer(app);
 
-const config = app.resolve(ConfigToken);
 const jwtService = app.resolve(JwtService);
 const qrTokenService = app.resolve(QRTokenService);
 const logger = app.resolve(LoggerToken);

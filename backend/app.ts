@@ -8,13 +8,14 @@ import { createAppInjector } from "./app.injector.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 import { injectorResolver } from "./middleware/injector-resolver.ts";
 import { ioServer } from "./middleware/io-server.ts";
-import { rateLimiter } from "./middleware/rate-limiter.ts";
+import { loginRateLimiter, rateLimiter } from "./middleware/rate-limiter.ts";
 import { zodValidator } from "./middleware/zod-validator.ts";
 import adminRouter from "./modules/admin/admin.router.ts";
 import analyticsRouter from "./modules/analytics/analytics.router.ts";
 import attendanceRouter from "./modules/attendance/attendance.router.ts";
 import authRouter from "./modules/auth/auth.router.ts";
 import coursesRouter from "./modules/courses/courses.router.ts";
+import { ConfigToken } from "./shared/config/config.ts";
 
 interface Application extends Express {
   resolve: Injector["resolve"];
@@ -28,6 +29,7 @@ export function createApp(
 ): Application {
   const app = express();
   const injector = createAppInjector(providerOverrides);
+  const config = injector.resolve(ConfigToken);
 
   app.set("trust proxy", 1);
 
@@ -36,9 +38,8 @@ export function createApp(
   app.use(injectorResolver(injector));
 
   app.use(helmet({ contentSecurityPolicy: false }));
-  // TODO: should specify a list of allowed origins
 
-  app.use(cors({ origin: "*", credentials: true }));
+  app.use(cors({ origin: config.cors.origins, credentials: true }));
 
   app.use(json());
 
@@ -49,6 +50,8 @@ export function createApp(
   app.use(zodValidator);
 
   app.use("/api/", rateLimiter());
+
+  app.use("/api/auth/login", loginRateLimiter());
 
   app.use(
     "/api",

@@ -10,3 +10,16 @@ export function rateLimiter() {
     },
   });
 }
+
+// Tighter limit on login to blunt credential brute-force; the global limiter's
+// 1000/min is far too loose for an auth endpoint.
+export function loginRateLimiter() {
+  return rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: {
+      success: false,
+      message: "Too many login attempts, please try again later.",
+    },
+  });
+}
