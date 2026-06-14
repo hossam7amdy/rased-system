@@ -42,7 +42,7 @@ export const AttendanceManagementPage = ({
   const [searchQuery, setSearchQuery] = useState("");
   const addToast = useToast();
 
-  const fetchSessions = async (courseId: number) => {
+  const fetchSessions = async (courseId: string) => {
     setLoadingSessions(true);
     setSessions([]);
     setSelectedSession(null);
@@ -62,7 +62,7 @@ export const AttendanceManagementPage = ({
     }
   };
 
-  const fetchSessionRecords = async (sessionId: number) => {
+  const fetchSessionRecords = async (sessionId: string) => {
     setLoadingRecords(true);
     setSessionRecords([]);
     try {

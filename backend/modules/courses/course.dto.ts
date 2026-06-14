@@ -1,10 +1,16 @@
 import type { output } from "zod";
 import type { Course } from "./course.model.ts";
-import type { CreateCourseSchema, EnrollSchema } from "./course.validator.ts";
+import type {
+  CreateCourseSchema,
+  EnrollSchema,
+  UpdateCourseSchema,
+} from "./course.validator.ts";
 
 export type CreateCourseDto = output<typeof CreateCourseSchema> & {
   professorId: string;
 };
+
+export type UpdateCourseDto = output<typeof UpdateCourseSchema>;
 
 export type EnrollDto = output<typeof EnrollSchema>;
 

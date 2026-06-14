@@ -5,7 +5,7 @@
 export type Role = "admin" | "professor" | "student";
 
 export interface User {
-  id: number;
+  id: string;
   full_name: string;
   email: string;
   role: Role;
@@ -13,7 +13,7 @@ export interface User {
 }
 
 export interface Course {
-  id: number;
+  id: string;
   course_code: string;
   course_name: string;
   semester: string;
@@ -24,7 +24,7 @@ export interface Course {
 }
 
 export interface Student {
-  id: number;
+  id: string;
   full_name: string;
   student_id: string;
   email?: string;
@@ -32,14 +32,14 @@ export interface Student {
 
 /** A row in the analytics attendance_trend (also used as a session list item). */
 export interface SessionSummary {
-  id: number;
+  id: string;
   session_name?: string;
   session_date?: string;
   attendance_count?: number;
 }
 
 export interface AttendanceRecord {
-  id: number;
+  id: string;
   full_name: string;
   university_id: string;
   scanned_at: string;

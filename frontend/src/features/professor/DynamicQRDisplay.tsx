@@ -13,7 +13,7 @@ interface AttendedStudent {
 
 interface DynamicQRDisplayProps {
   course: Course;
-  sessionId: number | null;
+  sessionId: string | null;
 }
 
 export const DynamicQRDisplay = ({

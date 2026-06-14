@@ -2,6 +2,7 @@ import {
   BarChart2,
   BookOpen,
   Calendar,
+  Pencil,
   Plus,
   QrCode,
   Trash2,
@@ -34,12 +35,13 @@ const blankCourse = {
 export const ProfessorDashboard = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [activeSession, setActiveSession] = useState<Course | null>(null);
-  const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("courses");
   const [newCourse, setNewCourse] = useState({ ...blankCourse });
   const [loading, setLoading] = useState(true);
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const addToast = useToast();
 
   const fetchCourses = useCallback(async () => {
@@ -65,7 +67,7 @@ export const ProfessorDashboard = () => {
     fetchCourses();
   }, [fetchCourses]);
 
-  const handleDeleteCourse = async (courseId: number) => {
+  const handleDeleteCourse = async (courseId: string) => {
     try {
       await coursesApi.remove(courseId);
       setCourses((prev) => prev.filter((c) => c.id !== courseId));
@@ -77,16 +79,39 @@ export const ProfessorDashboard = () => {
     }
   };
 
-  const handleAddCourse = async (e: FormEvent) => {
+  const openEditModal = (course: Course) => {
+    setNewCourse({
+      courseCode: course.course_code,
+      courseName: course.course_name,
+      semester: course.semester,
+      academicYear: course.academic_year,
+    });
+    setEditingCourse(course);
+  };
+
+  const closeModal = () => {
+    setShowAddModal(false);
+    setEditingCourse(null);
+    setNewCourse({ ...blankCourse });
+  };
+
+  const handleSubmitCourse = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      await coursesApi.create(newCourse);
-      setShowAddModal(false);
+      if (editingCourse) {
+        await coursesApi.update(editingCourse.id, newCourse);
+        addToast("تم تحديث المادة بنجاح", "success");
+      } else {
+        await coursesApi.create(newCourse);
+        addToast("تمت إضافة المادة بنجاح", "success");
+      }
+      closeModal();
       fetchCourses();
-      setNewCourse({ ...blankCourse });
-      addToast("تمت إضافة المادة بنجاح", "success");
-    } catch {
-      addToast("حدث خطأ أثناء الإضافة", "error");
+    } catch (err) {
+      const defaultMsg = editingCourse
+        ? "حدث خطأ أثناء التحديث"
+        : "حدث خطأ أثناء الإضافة";
+      addToast(err instanceof ApiError ? err.message : defaultMsg, "error");
     }
   };
 
@@ -274,6 +299,14 @@ export const ProfessorDashboard = () => {
                           </button>
                           <button
                             type="button"
+                            onClick={() => openEditModal(c)}
+                            className="px-3.5 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-xl transition-colors"
+                            title="تعديل المادة"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setConfirmDelete(c.id)}
                             className="px-3.5 py-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 text-red-400 dark:text-red-400 rounded-xl transition-colors"
                             title="حذف المادة"
@@ -297,19 +330,24 @@ export const ProfessorDashboard = () => {
         </>
       )}
 
-      {/* Add Course Modal */}
+      {/* Add / Edit Course Modal */}
       <Modal
-        open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="إضافة مادة دراسية"
+        open={showAddModal || editingCourse != null}
+        onClose={closeModal}
+        title={editingCourse ? "تعديل مادة دراسية" : "إضافة مادة دراسية"}
         maxWidth="max-w-lg"
       >
-        <form onSubmit={handleAddCourse} className="space-y-5">
+        <form
+          key={editingCourse ? `edit-${editingCourse.id}` : "new"}
+          onSubmit={handleSubmitCourse}
+          className="space-y-5"
+        >
           <Field
             id="course-name"
             label="اسم المادة"
             type="text"
             placeholder="مثال: مقدمة في علوم الحاسب"
+            defaultValue={newCourse.courseName}
             onChange={(e) =>
               setNewCourse({ ...newCourse, courseName: e.target.value })
             }
@@ -321,6 +359,7 @@ export const ProfessorDashboard = () => {
             type="text"
             placeholder="CS101"
             className="font-mono"
+            defaultValue={newCourse.courseCode}
             onChange={(e) =>
               setNewCourse({ ...newCourse, courseCode: e.target.value })
             }
@@ -336,6 +375,7 @@ export const ProfessorDashboard = () => {
               </label>
               <select
                 id="course-semester"
+                defaultValue={newCourse.semester}
                 className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl outline-none font-black text-blue-700 dark:text-blue-400 text-sm"
                 onChange={(e) =>
                   setNewCourse({ ...newCourse, semester: e.target.value })
@@ -350,7 +390,7 @@ export const ProfessorDashboard = () => {
               id="course-year"
               label="السنة الأكاديمية"
               type="text"
-              defaultValue="2025/2026"
+              defaultValue={newCourse.academicYear}
               className="text-center"
               onChange={(e) =>
                 setNewCourse({ ...newCourse, academicYear: e.target.value })
@@ -360,11 +400,11 @@ export const ProfessorDashboard = () => {
           </div>
           <div className="flex gap-3 pt-2">
             <Button type="submit" className="flex-[2] py-4">
-              حفظ المادة
+              {editingCourse ? "حفظ التعديلات" : "حفظ المادة"}
             </Button>
             <Button
               variant="secondary"
-              onClick={() => setShowAddModal(false)}
+              onClick={closeModal}
               className="flex-1 py-4"
             >
               إلغاء

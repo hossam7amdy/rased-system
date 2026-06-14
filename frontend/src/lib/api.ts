@@ -72,38 +72,47 @@ export const coursesApi = {
     semester: string;
     academicYear: string;
   }) => payload<{ course: Course }>(client.post("/courses", input)),
-  remove: (courseId: number) =>
+  update: (
+    courseId: string,
+    input: {
+      courseCode: string;
+      courseName: string;
+      semester: string;
+      academicYear: string;
+    },
+  ) => payload<{ course: Course }>(client.patch(`/courses/${courseId}`, input)),
+  remove: (courseId: string) =>
     payload<unknown>(client.delete(`/courses/${courseId}`)),
 };
 
 // ── Attendance ───────────────────────────────────────────────────────────────
 export const attendanceApi = {
-  currentQr: (courseId: number) =>
+  currentQr: (courseId: string) =>
     payload<QrToken>(client.get(`/attendance/current-qr/${courseId}`)),
-  session: (sessionId: number) =>
+  session: (sessionId: string) =>
     payload<{ records: import("./types").AttendanceRecord[] }>(
       client.get(`/attendance/sessions/${sessionId}`),
     ),
   startSession: (input: {
-    courseId: number;
+    courseId: string;
     sessionName: string;
     sessionDate: string;
   }) =>
     payload<{ session: SessionSummary }>(
       client.post("/attendance/sessions", input),
     ),
-  endSession: (sessionId: number) =>
+  endSession: (sessionId: string) =>
     payload<unknown>(client.patch(`/attendance/sessions/${sessionId}/end`)),
-  scan: (token: string, courseId: number) =>
+  scan: (token: string, courseId: string) =>
     payload<unknown>(client.post("/attendance/scan", { token, courseId })),
 };
 
 // ── Analytics ────────────────────────────────────────────────────────────────
 export const analyticsApi = {
-  course: (courseId: number) =>
+  course: (courseId: string) =>
     payload<CourseAnalytics>(client.get(`/analytics/course/${courseId}`)),
   /** Returns a Blob (xlsx). */
-  export: async (params: { courseId: number; sessionId?: number }) => {
+  export: async (params: { courseId: string; sessionId?: string }) => {
     const res = await client.get("/analytics/export", {
       params,
       responseType: "blob",
@@ -118,10 +127,10 @@ export const adminApi = {
   students: () =>
     payload<{ students: Student[] }>(client.get("/admin/students")),
   courses: () => payload<{ courses: Course[] }>(client.get("/admin/courses")),
-  deleteUser: (id: number) =>
+  deleteUser: (id: string) =>
     payload<unknown>(client.delete(`/admin/users/${id}`)),
   // Enroll endpoints return their full result envelope to the UI (not unwrapped).
-  enrollBulk: async (studentIds: number[], courseIds: number[]) => {
+  enrollBulk: async (studentIds: string[], courseIds: string[]) => {
     const res = await client.post("/admin/enroll-bulk", {
       studentIds,
       courseIds,
