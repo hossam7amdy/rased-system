@@ -11,7 +11,7 @@
 - نصّب البرنامج عادي (Next, Next, Install)
 - للتأكد من التنصيب: افتح Terminal/CMD واكتب:
   node --version
-  npm --version
+  yarn --version
 ```
 
 ### 2️⃣ تحميل PostgreSQL (قاعدة البيانات)
@@ -88,7 +88,7 @@ cd rased-system
 cd backend
 
 # نصّب المكتبات (هياخد 2-3 دقايق)
-npm install
+yarn install
 
 # انتظر لحد ما يخلص التحميل
 ```
@@ -103,7 +103,7 @@ cd ..
 cd frontend
 
 # نصّب المكتبات
-npm install
+yarn install
 
 # انتظر لحد ما يخلص
 ```
@@ -188,7 +188,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 # أنت دلوقتي في مجلد backend
 # شغّل سكريبت إنشاء الجداول:
 
-npm run init-db
+yarn run init-db
 
 # المفروض تشوف رسائل نجاح زي:
 # ✅ Users table created
@@ -233,7 +233,7 @@ sudo systemctl start redis
 cd rased-system/backend
 
 # شغّل السيرفر:
-npm run dev
+yarn run dev
 
 # المفروض تشوف رسالة:
 # ╔══════════════════════════════════════════════════════════╗
@@ -251,7 +251,7 @@ npm run dev
 cd rased-system/frontend
 
 # شغّل الواجهة:
-npm run dev
+yarn run dev
 
 # المفروض تشوف:
 # VITE v5.0.8  ready in 500 ms
@@ -494,7 +494,7 @@ lsof -ti:3000 | xargs kill -9
 3. تأكد من QR_TOKEN_EXPIRY في .env (لازم 10000)
 ```
 
-### ❌ المشكلة: npm install بيديني أخطاء
+### ❌ المشكلة: yarn install بيديني أخطاء
 
 ```
 الحل:
@@ -504,7 +504,7 @@ lsof -ti:3000 | xargs kill -9
 
 2. امسح المجلدات القديمة:
    rm -rf node_modules package-lock.json
-   npm install
+   yarn install
 
 3. لو فيه مشاكل permissions:
    🪟 Windows: افتح PowerShell كـ Administrator
@@ -608,36 +608,31 @@ http://192.168.1.XXX:3000
 tar -xzf rased-system.tar.gz
 cd rased-system
 
-# 2. تنصيب Backend
+# 2. تنصيب جميع المكتبات (Backend + Frontend)
+yarn install
+
+# 3. إعداد Database
 cd backend
-npm install
-
-# 3. تنصيب Frontend
-cd ../frontend
-npm install
-
-# 4. إعداد Database
-cd ../backend
 cp .env.example .env
 # عدّل .env
-npm run init-db
+yarn run init-db
 
-# 5. تشغيل التطبيق (3 Terminals):
+# 4. تشغيل التطبيق (3 Terminals):
 # Terminal 1:
 redis-server
 
 # Terminal 2:
 cd backend
-npm run dev
+yarn run dev
 
 # Terminal 3:
 cd frontend
-npm run dev
+yarn run dev
 
-# 6. افتح المتصفح:
+# 5. افتح المتصفح:
 http://localhost:3000
 
-# 7. سجّل دخول:
+# 6. سجّل دخول:
 admin@rased.edu / admin123
 ```
 

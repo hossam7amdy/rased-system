@@ -37,7 +37,7 @@ A professional, secure web application for university attendance management usin
 
 ## 📋 Prerequisites
 
-- Node.js 22+ and npm
+- Node.js 18+ and yarn
 - PostgreSQL 15+
 - Redis 7+
 - Modern web browser with camera access
@@ -52,7 +52,7 @@ git clone <repository-url>
 cd rased-system
 
 # Install all workspace dependencies (backend + frontend)
-npm install
+yarn install
 ```
 
 ### 2. Database Setup
@@ -69,7 +69,7 @@ cp .env.example .env
 nano .env
 
 # Initialize database schema
-npm run init-db
+yarn run init-db
 ```
 
 ### 3. Redis Setup
@@ -125,14 +125,14 @@ FRONTEND_URL=http://localhost:3000
 
 ```bash
 cd backend
-npm run dev
+yarn run dev
 ```
 
 **Terminal 2 - Frontend:**
 
 ```bash
 cd frontend
-npm run dev
+yarn run dev
 ```
 
 **Terminal 3 - Redis:**
@@ -152,16 +152,16 @@ Access the application:
 ```bash
 # Build frontend
 cd frontend
-npm run build
+yarn run build
 
 # Serve with backend
 cd ../backend
-NODE_ENV=production npm start
+NODE_ENV=production yarn start
 ```
 
 ## 👥 Default Accounts
 
-After running `npm run init-db`, a default admin account is created:
+After running `yarn run init-db`, a default admin account is created:
 
 ```
 Email: admin@rased.edu
@@ -377,13 +377,14 @@ const limiter = rateLimit({
 ### Using Docker (Recommended)
 
 ```dockerfile
-# Dockerfile (build context = repo root, for npm workspaces)
+# Dockerfile (build context = repo root)
 FROM node:22-alpine
 WORKDIR /app
-COPY package*.json ./
+COPY package.json yarn.lock ./
 COPY backend/package.json ./backend/
-RUN npm ci --omit=dev -w backend
-COPY backend/ ./backend/
+COPY frontend/package.json ./frontend/
+RUN yarn install --frozen-lockfile --production
+COPY . .
 EXPOSE 5000
 CMD ["node", "--experimental-strip-types", "backend/server.ts"]
 ```
