@@ -8,7 +8,7 @@ pre-commit:
       run: yarn prettier --write {staged_files}
       stage_fixed: true
     test:
-      run: | 
+      run: |
         yarn test
         yarn test:e2e
         yarn workspace backend test
