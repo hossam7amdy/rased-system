@@ -127,7 +127,7 @@ export const adminApi = {
   students: () =>
     payload<{ students: Student[] }>(client.get("/admin/students")),
   courses: () => payload<{ courses: Course[] }>(client.get("/admin/courses")),
-  deleteUser: (id: number) =>
+  deleteUser: (id: string) =>
     payload<unknown>(client.delete(`/admin/users/${id}`)),
   // Enroll endpoints return their full result envelope to the UI (not unwrapped).
   enrollBulk: async (studentIds: string[], courseIds: string[]) => {
