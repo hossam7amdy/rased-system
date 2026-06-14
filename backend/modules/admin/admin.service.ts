@@ -6,6 +6,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../../shared/errors.ts";
+import { type Logger, LoggerToken } from "../../shared/logger/logger.ts";
 import type { BulkCounts, ImportResult } from "./admin.dto.ts";
 import type {
   AdminCourseRow,
@@ -18,8 +19,10 @@ import type {
 
 export class AdminService {
   private readonly db;
-  constructor(db = inject(Database)) {
+  private readonly logger: Logger;
+  constructor(db = inject(Database), logger = inject(LoggerToken)) {
     this.db = db;
+    this.logger = logger;
   }
 
   async searchStudents(q: string): Promise<AdminStudentRow[]> {
@@ -148,9 +151,9 @@ export class AdminService {
               duplicates++;
             }
           } catch (rowErr) {
-            console.error(
-              `[Admin] enroll student=${studentId} course=${courseId}:`,
-              (rowErr as Error).message,
+            this.logger.error(
+              { err: rowErr, studentId, courseId },
+              "[Admin] enroll failed",
             );
             errors++;
           }
@@ -307,9 +310,9 @@ export class AdminService {
           errors++;
           detail.status = "error";
           detail.message = (rowErr as Error).message;
-          console.error(
-            `[Admin] import row ${detail.rowNum}:`,
-            (rowErr as Error).message,
+          this.logger.error(
+            { err: rowErr, rowNum: detail.rowNum },
+            "[Admin] import row failed",
           );
         }
         details.push(detail);

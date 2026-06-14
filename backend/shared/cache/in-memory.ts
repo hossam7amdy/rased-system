@@ -1,12 +1,13 @@
+import type { Logger } from "../logger/logger.ts";
 import { CacheClient, type SetOptions } from "./cache-client.ts";
 
 export class InMemoryCache extends CacheClient {
   readonly #store = new Map<string, string>();
   readonly #timers = new Map<string, NodeJS.Timeout>();
 
-  constructor() {
+  constructor(logger: Logger) {
     super();
-    console.log(`🟡 Using in-memory cache`);
+    logger.info("🟡 Using in-memory cache");
   }
 
   get isOpen(): boolean {

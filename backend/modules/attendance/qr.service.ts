@@ -2,6 +2,7 @@ import { inject } from "injectus";
 import type { Server } from "socket.io";
 import { CacheClient } from "../../shared/cache/cache-client.ts";
 import { ConfigToken } from "../../shared/config/config.ts";
+import { type Logger, LoggerToken } from "../../shared/logger/logger.ts";
 import { QrCrypto } from "./qr.crypto.ts";
 
 interface GeneratedToken {
@@ -18,6 +19,7 @@ interface ValidationResult {
 export class QRTokenService {
   private readonly cache: CacheClient;
   private readonly crypto: QrCrypto;
+  private readonly logger: Logger;
   private readonly rotationMs: number;
   private readonly validityMs: number;
   private readonly validitySec: number;
@@ -27,9 +29,11 @@ export class QRTokenService {
     cache = inject(CacheClient),
     crypto = inject(QrCrypto),
     config = inject(ConfigToken),
+    logger = inject(LoggerToken),
   ) {
     this.cache = cache;
     this.crypto = crypto;
+    this.logger = logger;
     this.rotationMs = config.qr.rotationMs;
     this.validityMs = config.qr.validityMs;
     this.validitySec = Math.ceil(this.validityMs / 1000);
@@ -48,11 +52,12 @@ export class QRTokenService {
           type: "EX",
         },
       });
-      console.log(
-        `🆕 [QR_STORED] Session: ${sessionId} | Token: ${encryptedToken.substring(0, 12)}...`,
+      this.logger.debug(
+        { sessionId, tokenPreview: encryptedToken.substring(0, 12) },
+        "🆕 [QR_STORED] token stored",
       );
     } catch (err) {
-      console.error("⚠️ [CACHE_WRITE_SKIPPED]:", (err as Error).message);
+      this.logger.error({ err }, "⚠️ [CACHE_WRITE_SKIPPED]");
     }
 
     return { token: encryptedToken, timestamp };
@@ -74,7 +79,7 @@ export class QRTokenService {
 
     const age = Date.now() - issuedAt;
     if (age < 0 || age > this.validityMs) {
-      console.error(`🚫 [EXPIRED] Token for session ${sessionId} is too old.`);
+      this.logger.warn({ sessionId }, "🚫 [EXPIRED] token too old");
       return {
         valid: false,
         message: "انتهى وقت الرمز، انتظر الكود الجديد على الشاشة.",
@@ -89,10 +94,10 @@ export class QRTokenService {
       }
       await this.cache.setEx(replayKey, this.validitySec, "true");
     } catch (err) {
-      console.error("⚠️ [REPLAY_CHECK_SKIPPED]:", (err as Error).message);
+      this.logger.error({ err }, "⚠️ [REPLAY_CHECK_SKIPPED]");
     }
 
-    console.log(`✅ [SUCCESS] Token validated for session: ${sessionId}`);
+    this.logger.debug({ sessionId }, "✅ [SUCCESS] token validated");
     return { valid: true, courseId: sessionId };
   }
 
@@ -112,9 +117,9 @@ export class QRTokenService {
       try {
         const { token, timestamp } = await this.generateToken(sessionId);
         io.to(sessionId.toString()).emit("qr_update", { token, timestamp });
-        console.log(`📡 [SOCKET_EMIT] Token sent to room: ${sessionId}`);
+        this.logger.debug({ sessionId }, "📡 [SOCKET_EMIT] token sent to room");
       } catch (err) {
-        console.error("🔥 [ROTATION_STEP_ERROR]:", err);
+        this.logger.error({ err }, "🔥 [ROTATION_STEP_ERROR]");
       }
     };
 
@@ -129,7 +134,7 @@ export class QRTokenService {
     if (interval) {
       clearInterval(interval);
       this.activeRotations.delete(sIdStr);
-      console.log(`⏹️ [ROTATION_STOPPED] Session: ${sIdStr}`);
+      this.logger.debug({ sessionId: sIdStr }, "⏹️ [ROTATION_STOPPED]");
     }
   }
 }

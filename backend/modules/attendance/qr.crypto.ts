@@ -7,6 +7,7 @@ import {
 } from "node:crypto";
 import { inject } from "injectus";
 import { ConfigToken } from "../../shared/config/config.ts";
+import { type Logger, LoggerToken } from "../../shared/logger/logger.ts";
 
 const QR_SALT = "rased_qr_salt";
 const ALGORITHM = "aes-256-gcm";
@@ -19,9 +20,11 @@ export interface TokenData {
 
 export class QrCrypto {
   private readonly key: Buffer;
+  private readonly logger: Logger;
 
-  constructor(config = inject(ConfigToken)) {
+  constructor(config = inject(ConfigToken), logger = inject(LoggerToken)) {
     this.key = scryptSync(config.qr.secret, QR_SALT, 32);
+    this.logger = logger;
   }
 
   encrypt(data: TokenData): string {
@@ -38,7 +41,7 @@ export class QrCrypto {
 
       return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
     } catch (error) {
-      console.error("Encryption error:", error);
+      this.logger.error({ err: error }, "Encryption error");
       throw new Error("Token processing failed");
     }
   }

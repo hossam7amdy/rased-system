@@ -1,5 +1,6 @@
 import { loadConfig } from "../shared/config/config.ts";
 import { Database } from "../shared/database/database.ts";
+import { createLogger } from "../shared/logger/logger.ts";
 
 // Idempotent schema. Single DDL source: init-db CLI + test setup.
 export const applySchema = async (client: Database): Promise<void> => {
@@ -78,12 +79,13 @@ export const applySchema = async (client: Database): Promise<void> => {
 
 const initDatabase = async (): Promise<void> => {
   const config = loadConfig();
+  const logger = createLogger(config);
   const db = new Database(config);
 
   try {
-    console.log("📊 Connected to PostgreSQL. Starting initialization...");
+    logger.info("📊 connected to PostgreSQL, starting initialization...");
     await applySchema(db);
-    console.log("✅ Schema applied");
+    logger.info("✅ schema applied");
   } finally {
     await db.end();
   }

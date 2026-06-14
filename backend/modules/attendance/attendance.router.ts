@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { checkRole, verifyToken } from "../../middleware/auth.ts";
+import { LoggerToken } from "../../shared/logger/logger.ts";
 import { AttendanceService } from "./attendance.service.ts";
 import {
   CreateSessionSchema,
@@ -39,7 +40,9 @@ router.post(
       try {
         qrTokenService.startRotation(session.course_id, req.io);
       } catch (qrError) {
-        console.error("❌ [QR_SERVICE_ERROR]:", qrError);
+        req
+          .resolve(LoggerToken)
+          .error({ err: qrError }, "❌ [QR_SERVICE_ERROR]");
       }
     }
 

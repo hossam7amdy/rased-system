@@ -1,9 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "../shared/errors.ts";
+import { LoggerToken } from "../shared/logger/logger.ts";
 
 export function errorHandler(
   err: Error,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ) {
@@ -15,7 +16,7 @@ export function errorHandler(
     return;
   }
 
-  console.error("🔥 Server Error:", err);
+  req.resolve(LoggerToken).error({ err }, "🔥 Server Error");
   res.status(500).json({
     success: false,
     message:

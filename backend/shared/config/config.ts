@@ -4,6 +4,7 @@ import { type Env, EnvSchema } from "./env.ts";
 
 export interface Config {
   env: Env["NODE_ENV"];
+  logLevel: Env["LOG_LEVEL"];
   server: {
     port: number;
   };
@@ -45,6 +46,7 @@ function toConfig(env: Env): Config {
 
   return {
     env: env.NODE_ENV,
+    logLevel: env.LOG_LEVEL,
     server: { port: env.PORT },
     db: {
       host: env.DB_HOST,

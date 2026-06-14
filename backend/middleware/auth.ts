@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import type { UserRole } from "../modules/auth/auth.model.ts";
 import { type JwtPayload, JwtService } from "../modules/auth/jwt.service.ts";
+import { LoggerToken } from "../shared/logger/logger.ts";
 
 declare global {
   namespace Express {
@@ -15,13 +16,17 @@ export function verifyToken(
   res: Response,
   next: NextFunction,
 ): void {
+  const logger = req.resolve(LoggerToken);
   try {
     const authHeader = req.headers.authorization;
 
-    console.log(`🌐 [INCOMING_REQUEST] ${req.method} ${req.originalUrl}`);
+    logger.debug(
+      { method: req.method, url: req.originalUrl },
+      "🌐 [INCOMING_REQUEST]",
+    );
 
     if (!authHeader?.startsWith("Bearer ")) {
-      console.error("❌ [AUTH_FAILED] No Bearer token found in headers.");
+      logger.warn("❌ [AUTH_FAILED] no Bearer token in headers");
       res.status(401).json({
         success: false,
         message: "Access denied. No token provided.",
@@ -33,13 +38,14 @@ export function verifyToken(
     const decoded = req.resolve(JwtService).verify(token);
 
     req.user = decoded;
-    console.log(
-      `✅ [AUTH_SUCCESS] User: ${decoded.email} | Role: ${decoded.role}`,
+    logger.debug(
+      { email: decoded.email, role: decoded.role },
+      "✅ [AUTH_SUCCESS]",
     );
     next();
   } catch (error) {
     const err = error as Error & { name: string };
-    console.error(`🔥 [JWT_ERROR] ${err.message}`);
+    logger.warn({ err }, "🔥 [JWT_ERROR]");
 
     if (err.name === "TokenExpiredError") {
       res.status(401).json({
@@ -55,8 +61,9 @@ export function verifyToken(
 
 export function checkRole(...allowedRoles: UserRole[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
+    const logger = req.resolve(LoggerToken);
     if (!req.user) {
-      console.error("❌ [ROLE_ERROR] No user object found in request.");
+      logger.warn("❌ [ROLE_ERROR] no user object in request");
       res.status(401).json({
         success: false,
         message: "Authentication required.",
@@ -65,8 +72,9 @@ export function checkRole(...allowedRoles: UserRole[]) {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      console.warn(
-        `🚫 [ACCESS_DENIED] User ${req.user.email} (Role: ${req.user.role}) tried to access a restricted route. Allowed: [${allowedRoles}]`,
+      logger.warn(
+        { email: req.user.email, role: req.user.role, allowedRoles },
+        "🚫 [ACCESS_DENIED] insufficient permissions",
       );
       res.status(403).json({
         success: false,
@@ -75,7 +83,7 @@ export function checkRole(...allowedRoles: UserRole[]) {
       return;
     }
 
-    console.log(`🔓 [ACCESS_GRANTED] Role ${req.user.role} is authorized.`);
+    logger.debug({ role: req.user.role }, "🔓 [ACCESS_GRANTED]");
     next();
   };
 }

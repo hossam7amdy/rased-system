@@ -14,7 +14,8 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm --prefix ../backend run dev",
+      command: "NODE_ENV=test npm start",
+      cwd: "../backend",
       url: "http://localhost:5000/api/health",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
