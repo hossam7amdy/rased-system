@@ -5,12 +5,12 @@
   "description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
   "scripts": {
     "start": "node --experimental-strip-types backend/server.ts",
-    "dev": "concurrently --names 'FE,BE' -c 'cyan,green' 'yarn workspace frontend dev' 'yarn workspace backend dev'",
-    "test": "concurrently 'yarn workspace frontend test' 'yarn workspace backend test'",
-    "test:e2e": "yarn workspace frontend test:e2e",
+    "dev": "concurrently --names 'FE,BE' -c 'cyan,green' 'npm run dev -w frontend' 'npm run dev -w backend'",
+    "test": "concurrently 'npm run test -w frontend' 'npm run test -w backend'",
+    "test:e2e": "npm run test:e2e -w frontend",
     "check": "biome check . && prettier --check \"**/*.{md,yml}\"",
     "check:fix": "biome check . --write && prettier --write \"**/*.{md,yml}\"",
-    "typecheck": "concurrently 'yarn workspace frontend typecheck' 'yarn workspace backend typecheck'"
+    "typecheck": "concurrently 'npm run typecheck -w frontend' 'npm run typecheck -w backend'"
   },
   "repository": {
     "type": "git",
@@ -35,7 +35,5 @@
   },
   "engines": {
     "node": ">=22.6.0"
-  },
-  "engineStrict": true,
-  "packageManager": "yarn@1.22.22"
+  }
 }

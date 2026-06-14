@@ -1,13 +1,13 @@
 pre-commit:
   commands:
     lint:
-      run: yarn biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+      run: npx biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
       stage_fixed: true
     format:
       glob: "**/*.{md,yml}"
-      run: yarn prettier --write {staged_files}
+      run: npx prettier --write {staged_files}
       stage_fixed: true
     test:
-      run: yarn test
+      run: npm test
     typecheck:
-      run: yarn typecheck
+      run: npm run typecheck
