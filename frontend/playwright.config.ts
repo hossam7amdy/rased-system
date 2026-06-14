@@ -14,7 +14,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "yarn workspace backend dev",
+      command: "npm --prefix ../backend run dev",
       url: "http://localhost:5000/api/health",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
@@ -22,7 +22,7 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      command: "yarn workspace frontend dev",
+      command: "npm run dev",
       url: "http://localhost:3000",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
