@@ -29,8 +29,8 @@ cp .env.example .env
 # - TOKEN_ENCRYPTION_KEY (exactly 32 characters)
 
 # Initialize database
-npm install
-npm run init-db
+yarn install
+yarn run init-db
 ```
 
 ### Step 2: Start Services (1 minute)
@@ -41,12 +41,12 @@ redis-server
 
 # Terminal 2: Start Backend
 cd backend
-npm run dev
+yarn run dev
 
 # Terminal 3: Start Frontend
 cd frontend
-npm install
-npm run dev
+yarn install
+yarn run dev
 ```
 
 ### Step 3: Access & Test (2 minutes)

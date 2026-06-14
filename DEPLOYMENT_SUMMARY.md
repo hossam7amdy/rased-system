@@ -177,11 +177,11 @@ rased-system/
 ```bash
 # Backend
 cd backend
-npm install
+yarn install
 
 # Frontend
 cd frontend
-npm install
+yarn install
 ```
 
 ### 2. Setup Environment (3 minutes)
@@ -201,7 +201,7 @@ createdb rased_db
 
 # Run initialization script
 cd backend
-npm run init-db
+yarn run init-db
 ```
 
 ### 4. Start Services (1 minute)
@@ -212,11 +212,11 @@ redis-server
 
 # Terminal 2: Backend
 cd backend
-npm run dev
+yarn run dev
 
 # Terminal 3: Frontend
 cd frontend
-npm run dev
+yarn run dev
 ```
 
 ### 5. Access Application

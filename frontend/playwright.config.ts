@@ -14,8 +14,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "NODE_ENV=test npm start",
-      cwd: "../backend",
+      command: "NODE_ENV=test yarn workspace backend start",
       url: "http://localhost:5000/api/health",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
@@ -23,7 +22,7 @@ export default defineConfig({
       stderr: "pipe",
     },
     {
-      command: "npm run dev",
+      command: "yarn workspace frontend dev",
       url: "http://localhost:3000",
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
