@@ -51,12 +51,7 @@ A professional, secure web application for university attendance management usin
 git clone <repository-url>
 cd rased-system
 
-# Install backend dependencies
-cd backend
-yarn install
-
-# Install frontend dependencies
-cd ../frontend
+# Install all workspace dependencies (backend + frontend)
 yarn install
 ```
 
@@ -382,14 +377,16 @@ const limiter = rateLimit({
 ### Using Docker (Recommended)
 
 ```dockerfile
-# backend/Dockerfile
-FROM node:18-alpine
+# Dockerfile (build context = repo root)
+FROM node:22-alpine
 WORKDIR /app
-COPY package*.json ./
-RUN yarn ci --only=production
+COPY package.json yarn.lock ./
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+RUN yarn install --frozen-lockfile --production
 COPY . .
 EXPOSE 5000
-CMD ["node", "server.js"]
+CMD ["node", "--experimental-strip-types", "backend/server.ts"]
 ```
 
 ### Using Docker Compose

@@ -608,21 +608,16 @@ http://192.168.1.XXX:3000
 tar -xzf rased-system.tar.gz
 cd rased-system
 
-# 2. تنصيب Backend
+# 2. تنصيب جميع المكتبات (Backend + Frontend)
+yarn install
+
+# 3. إعداد Database
 cd backend
-yarn install
-
-# 3. تنصيب Frontend
-cd ../frontend
-yarn install
-
-# 4. إعداد Database
-cd ../backend
 cp .env.example .env
 # عدّل .env
 yarn run init-db
 
-# 5. تشغيل التطبيق (3 Terminals):
+# 4. تشغيل التطبيق (3 Terminals):
 # Terminal 1:
 redis-server
 
@@ -634,10 +629,10 @@ yarn run dev
 cd frontend
 yarn run dev
 
-# 6. افتح المتصفح:
+# 5. افتح المتصفح:
 http://localhost:3000
 
-# 7. سجّل دخول:
+# 6. سجّل دخول:
 admin@rased.edu / admin123
 ```
 

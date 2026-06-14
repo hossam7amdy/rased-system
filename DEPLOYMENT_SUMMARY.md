@@ -175,12 +175,7 @@ rased-system/
 ### 1. Install Dependencies (5 minutes)
 
 ```bash
-# Backend
-cd backend
-yarn install
-
-# Frontend
-cd frontend
+# Install all workspace dependencies (backend + frontend)
 yarn install
 ```
 
