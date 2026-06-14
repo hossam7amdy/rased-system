@@ -5,7 +5,7 @@ import { createApp } from "./app.ts";
 import { QRTokenService } from "./modules/attendance/qr.service.ts";
 import { type JwtPayload, JwtService } from "./modules/auth/jwt.service.ts";
 import { CacheClient } from "./shared/cache/cache-client.ts";
-import { loadConfig } from "./shared/config/config.ts";
+import { ConfigToken, loadConfig } from "./shared/config/config.ts";
 import { Database } from "./shared/database/database.ts";
 import { UnauthorizedError } from "./shared/errors.ts";
 import { LoggerToken } from "./shared/logger/logger.ts";
@@ -28,7 +28,8 @@ const io = new Server({
   },
 });
 
-const app = createApp(io);
+// Reuse the already-parsed config so the env file isn't read and validated twice.
+const app = createApp(io, [{ provide: ConfigToken, useValue: config }]);
 const server = createServer(app);
 
 const jwtService = app.resolve(JwtService);
