@@ -1,6 +1,6 @@
 {
   "name": "rased-system",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "description": "A professional, secure web application for university attendance management using high-frequency dynamic QR codes.",
   "scripts": {
