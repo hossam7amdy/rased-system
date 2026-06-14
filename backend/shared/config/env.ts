@@ -27,6 +27,17 @@ export const EnvSchema = z
     REDIS_PORT: z.coerce.number().int().positive().default(6379),
     REDIS_PASSWORD: z.string().optional(),
     REDIS_DB: z.coerce.number().int().min(0).default(0),
+
+    CORS_ORIGINS: z
+      .string()
+      .default("http://localhost:3000")
+      .transform((s) =>
+        s
+          .split(",")
+          .map((o) => o.trim())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.url()).min(1)),
   })
   .refine((env) => env.QR_VALIDITY_MS >= env.QR_ROTATION_MS, {
     error:
