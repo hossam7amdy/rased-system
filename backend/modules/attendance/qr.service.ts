@@ -1,5 +1,4 @@
 import { inject } from "injectus";
-import type { Server } from "socket.io";
 import { CacheClient } from "../../shared/cache/cache-client.ts";
 import { ConfigToken } from "../../shared/config/config.ts";
 import { type Logger, LoggerToken } from "../../shared/logger/logger.ts";
@@ -110,21 +109,22 @@ export class QRTokenService {
     );
   }
 
-  startRotation(sessionId: string | number, io: Server): void {
+  startRotation(sessionId: string | number): void {
     this.stopRotation(sessionId);
 
     const rotate = async (): Promise<void> => {
       try {
-        const { token, timestamp } = await this.generateToken(sessionId);
-        io.to(sessionId.toString()).emit("qr_update", { token, timestamp });
-        this.logger.debug({ sessionId }, "📡 [SOCKET_EMIT] token sent to room");
+        // Regenerate and cache the current token; clients poll /current-qr.
+        await this.generateToken(sessionId);
       } catch (err) {
         this.logger.error({ err }, "🔥 [ROTATION_STEP_ERROR]");
       }
     };
 
     rotate();
-    const interval = setInterval(rotate, this.rotationMs);
+    // unref so an active rotation never keeps the process alive (clean SIGINT /
+    // test exit); the HTTP server is what holds the loop open in production.
+    const interval = setInterval(rotate, this.rotationMs).unref();
     this.activeRotations.set(sessionId.toString(), interval);
   }
 

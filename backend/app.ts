@@ -3,11 +3,9 @@ import type { Express } from "express";
 import express, { json, urlencoded } from "express";
 import helmet from "helmet";
 import type { Injector, Provider } from "injectus";
-import type { Server } from "socket.io";
 import { createAppInjector } from "./app.injector.ts";
 import { errorHandler } from "./middleware/error-handler.ts";
 import { injectorResolver } from "./middleware/injector-resolver.ts";
-import { ioServer } from "./middleware/io-server.ts";
 import { loginRateLimiter, rateLimiter } from "./middleware/rate-limiter.ts";
 import { zodValidator } from "./middleware/zod-validator.ts";
 import adminRouter from "./modules/admin/admin.router.ts";
@@ -22,11 +20,8 @@ interface Application extends Express {
   dispose: Injector["dispose"];
 }
 
-// Build the Express app without binding a port; tests call createApp() with no io.
-export function createApp(
-  io?: Server,
-  providerOverrides?: Provider[],
-): Application {
+// Build the Express app without binding a port.
+export function createApp(providerOverrides?: Provider[]): Application {
   const app = express();
   const injector = createAppInjector(providerOverrides);
   const config = injector.resolve(ConfigToken);
@@ -44,8 +39,6 @@ export function createApp(
   app.use(json());
 
   app.use(urlencoded({ extended: true }));
-
-  if (io) app.use(ioServer(io));
 
   app.use(zodValidator);
 

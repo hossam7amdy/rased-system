@@ -5,7 +5,6 @@ import { z } from "zod";
 // COUNT, unparsed); strictObject rejects unexpected fields.
 // TODO: envelope is inconsistent (data-wrapped vs sibling vs flat) —
 //   normalize controllers later with this suite as safety net.
-// TODO: Socket.io events (session_started, student_attended) uncovered.
 
 const uuid = z.uuid();
 const ts = z.iso.datetime();
