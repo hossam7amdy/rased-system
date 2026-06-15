@@ -35,15 +35,11 @@ router.post(
       professorId: req.user!.id,
     });
 
-    if (req.io) {
-      // Best-effort: QR rotation failures must not fail session creation.
-      try {
-        qrTokenService.startRotation(session.course_id, req.io);
-      } catch (qrError) {
-        req
-          .resolve(LoggerToken)
-          .error({ err: qrError }, "❌ [QR_SERVICE_ERROR]");
-      }
+    // Best-effort: QR rotation failures must not fail session creation.
+    try {
+      qrTokenService.startRotation(session.course_id);
+    } catch (qrError) {
+      req.resolve(LoggerToken).error({ err: qrError }, "❌ [QR_SERVICE_ERROR]");
     }
 
     return res.status(201).json({
@@ -74,25 +70,6 @@ router.post(
     const { token } = req.validBody(ScanQRSchema);
     const service = req.resolve(AttendanceService);
     const result = await service.scanQR({ token, studentId: req.user!.id });
-
-    if (req.io) {
-      const payload = {
-        studentId: req.user!.id,
-        studentName: req.user!.full_name,
-        studentUniversityId: req.user!.student_id,
-        scannedAt: new Date(),
-        sessionId: result.sessionId,
-        courseId: result.courseId,
-        attendanceStats: {
-          attended: result.attended,
-          total: result.total,
-          percentage: result.percentage,
-        },
-      };
-
-      req.io.to(result.courseId.toString()).emit("student_attended", payload);
-      req.io.to(result.sessionId.toString()).emit("student_attended", payload);
-    }
 
     return res.json({
       success: true,
