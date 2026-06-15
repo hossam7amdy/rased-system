@@ -102,20 +102,20 @@ export class AttendanceService {
 
     const sessionId = (activeSession.rows[0] as { id: string }).id;
 
-    const duplicateCheck = await this.db.query(
-      "SELECT id FROM attendance_records WHERE student_id = $1 AND session_id = $2",
-      [input.studentId, sessionId],
-    );
-
-    if (duplicateCheck.rows.length > 0) {
-      throw new ConflictError("تم تسجيل حضورك في هذه المحاضرة مسبقاً.");
-    }
-
-    await this.db.query(
+    // Rely on the UNIQUE(session_id, student_id) constraint to block double
+    // attendance atomically — no SELECT-then-INSERT race. 0 rows back means a
+    // row already existed for this student in this session.
+    const inserted = await this.db.query(
       `INSERT INTO attendance_records (session_id, course_id, student_id, scanned_at, status)
-         VALUES ($1, $2, $3, NOW(), 'present')`,
+         VALUES ($1, $2, $3, NOW(), 'present')
+         ON CONFLICT (session_id, student_id) DO NOTHING
+         RETURNING id`,
       [sessionId, courseId, input.studentId],
     );
+
+    if (inserted.rows.length === 0) {
+      throw new ConflictError("تم تسجيل حضورك في هذه المحاضرة مسبقاً.");
+    }
 
     const statsResult = await this.db.query(
       `SELECT
