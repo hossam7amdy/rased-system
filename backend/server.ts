@@ -2,16 +2,14 @@ import { createServer } from "node:http";
 import { networkInterfaces as _networkInterfaces } from "node:os";
 import { createApp } from "./app.ts";
 import { CacheClient } from "./shared/cache/cache-client.ts";
-import { ConfigToken, loadConfig } from "./shared/config/config.ts";
+import { ConfigToken } from "./shared/config/config.ts";
 import { Database } from "./shared/database/database.ts";
 import { LoggerToken } from "./shared/logger/logger.ts";
 
-const config = loadConfig();
-
-// Reuse the already-parsed config so the env file isn't read and validated twice.
-const app = createApp([{ provide: ConfigToken, useValue: config }]);
+const app = createApp();
 const server = createServer(app);
 
+const config = app.resolve(ConfigToken);
 const logger = app.resolve(LoggerToken);
 
 await Promise.all([
